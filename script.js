@@ -118,14 +118,51 @@ async function fetchAllIssues(token) {
     return allFetchedIssues;
 }
 
+// Function to check for cached token on server
+async function checkCachedToken() {
+    try {
+        const response = await fetch('/api/token-status');
+        if (response.ok) {
+            const data = await response.json();
+            return data;
+        }
+    } catch (error) {
+        console.log('No cached token available:', error.message);
+    }
+    return { hasToken: false };
+}
+
+// Function to get cached token from server
+async function getCachedToken() {
+    try {
+        const response = await fetch('/api/cached-token');
+        if (response.ok) {
+            const data = await response.json();
+            return data.token;
+        }
+    } catch (error) {
+        console.log('Could not retrieve cached token:', error.message);
+    }
+    return null;
+}
+
 // Main function to fetch issues from Linear GraphQL API
 async function fetchIssues() {
     const tokenInput = document.getElementById('token-input');
-    const token = tokenInput.value.trim();
+    let token = tokenInput.value.trim();
 
+    // If no token entered, try to get cached token
     if (!token) {
-        showError('Please enter your Linear API token');
-        return;
+        console.log('No token entered, checking for cached token...');
+        token = await getCachedToken();
+        if (token) {
+            console.log('Using cached token from server');
+            // Update the UI to show we're using a cached token
+            showInfo('Using cached Linear API token from server');
+        } else {
+            showError('Please enter your Linear API token');
+            return;
+        }
     }
 
     // Show loading state
@@ -307,11 +344,34 @@ function showError(message) {
     const errorDiv = document.getElementById('error-message');
     errorDiv.textContent = message;
     errorDiv.classList.remove('hidden');
+    hideInfo(); // Hide info when showing error
 }
 
 function hideError() {
     const errorDiv = document.getElementById('error-message');
     errorDiv.classList.add('hidden');
+}
+
+function showInfo(message) {
+    let infoDiv = document.getElementById('info-message');
+    if (!infoDiv) {
+        // Create info div if it doesn't exist
+        infoDiv = document.createElement('div');
+        infoDiv.id = 'info-message';
+        infoDiv.className = 'info-message';
+        const errorDiv = document.getElementById('error-message');
+        errorDiv.parentNode.insertBefore(infoDiv, errorDiv);
+    }
+    infoDiv.textContent = message;
+    infoDiv.classList.remove('hidden');
+    hideError(); // Hide error when showing info
+}
+
+function hideInfo() {
+    const infoDiv = document.getElementById('info-message');
+    if (infoDiv) {
+        infoDiv.classList.add('hidden');
+    }
 }
 
 function showResults() {
@@ -334,4 +394,26 @@ document.getElementById('token-input').addEventListener('keypress', function(e) 
 // Clear error when user starts typing
 document.getElementById('token-input').addEventListener('input', function() {
     hideError();
+    hideInfo();
 });
+
+// Initialize page and check for cached token
+async function initializePage() {
+    const tokenStatus = await checkCachedToken();
+    if (tokenStatus.hasToken) {
+        const tokenInput = document.getElementById('token-input');
+        const fetchButton = document.getElementById('fetch-button');
+
+        // Update UI to indicate cached token is available
+        tokenInput.placeholder = 'Cached token available - leave empty to use cached token';
+        fetchButton.textContent = 'Fetch Issues (using cached token)';
+
+        showInfo('Cached Linear API token detected. You can fetch issues without entering a token.');
+
+        // Optionally auto-fetch issues if you want
+        // fetchIssues();
+    }
+}
+
+// Initialize page when DOM is loaded
+document.addEventListener('DOMContentLoaded', initializePage);

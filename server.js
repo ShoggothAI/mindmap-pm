@@ -2,6 +2,12 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
+// Get env file path from command line argument or use default
+const envPath = process.argv[2] || '.env.ubuntu';
+require('dotenv').config({ path: envPath });
+
+console.log(`Loading environment variables from: ${envPath}`);
+
 const app = express();
 const PORT = 3000;
 
@@ -14,6 +20,25 @@ app.use(express.json());
 // Serve static files (HTML, CSS, JS)
 app.use(express.static('.'));
 
+// Get cached Linear token endpoint
+app.get('/api/token-status', (req, res) => {
+    const cachedToken = process.env.ANOTHER_LINEAR_API_KEY || process.env.LINEAR_API_KEY;
+    res.json({
+        hasToken: !!cachedToken,
+        source: cachedToken ? 'environment' : null
+    });
+});
+
+// Get cached Linear token (if available)
+app.get('/api/cached-token', (req, res) => {
+    const cachedToken = process.env.ANOTHER_LINEAR_API_KEY || process.env.LINEAR_API_KEY;
+    if (cachedToken) {
+        res.json({ token: cachedToken });
+    } else {
+        res.status(404).json({ error: 'No cached token available' });
+    }
+});
+
 // Proxy endpoint for Linear API
 app.post('/api/linear', async (req, res) => {
     try {
@@ -23,6 +48,11 @@ app.post('/api/linear', async (req, res) => {
         let token = req.headers.authorization;
         if (token && token.startsWith('Bearer ')) {
             token = token.substring(7); // Remove 'Bearer ' prefix
+        }
+
+        // If no token provided in request, try to use cached token from environment
+        if (!token) {
+            token = process.env.ANOTHER_LINEAR_API_KEY || process.env.LINEAR_API_KEY;
         }
 
         const response = await fetch('https://api.linear.app/graphql', {

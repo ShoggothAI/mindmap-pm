@@ -11,8 +11,9 @@
     "test:integration": "node tests/integration.test.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
     "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^4.18.2",
     "node-fetch": "^3.3.2"
   },
   "private": true
