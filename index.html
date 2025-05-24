@@ -39,7 +39,7 @@
             <p>Fetching issues...</p>
         </div>
 
-        <div id="error-message" class="error hidden"></div>
+        <div id="error-message" class="error hidden" style="display: none !important;"></div>
 
         <div id="results-section" class="results-section hidden">
             <div class="results-header">
@@ -47,27 +47,43 @@
                 <span id="issue-count" class="issue-count"></span>
             </div>
 
-            <div class="table-container">
-                <table id="issues-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Title</th>
-                            <th>Status</th>
-                            <th>Priority</th>
-                            <th>Assignee</th>
-                            <th>Team</th>
-                            <th>Created</th>
-                            <th>Updated</th>
-                        </tr>
-                    </thead>
-                    <tbody id="issues-tbody">
-                    </tbody>
-                </table>
+            <!-- Tab Navigation -->
+            <div class="tab-navigation">
+                <button class="tab-button active" onclick="switchTab('table', event)">Table View</button>
+                <button class="tab-button" onclick="switchTab('mindmap', event)">Mind Map</button>
+            </div>
+
+            <!-- Table View -->
+            <div id="table-view" class="tab-content active">
+                <div class="table-container">
+                    <table id="issues-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Title</th>
+                                <th>Status</th>
+                                <th>Priority</th>
+                                <th>Assignee</th>
+                                <th>Team</th>
+                                <th>Created</th>
+                                <th>Updated</th>
+                            </tr>
+                        </thead>
+                        <tbody id="issues-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Mind Map View -->
+            <div id="mindmap-view" class="tab-content">
+                <div id="mindmap-container"></div>
             </div>
         </div>
     </div>
 
+    <script src="https://unpkg.com/d3@5/dist/d3.min.js"></script>
+    <script src="https://unpkg.com/mmp@0.2.20/build/mmp.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
