@@ -1,7 +1,11 @@
-// GraphQL query to fetch issues with comprehensive data
+// GraphQL query to fetch issues with comprehensive data and pagination support
 const ISSUES_QUERY = `
-  query {
-    issues(first: 100) {
+  query($first: Int!, $after: String) {
+    issues(first: $first, after: $after) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
       nodes {
         id
         identifier
@@ -37,7 +41,84 @@ const ISSUES_QUERY = `
   }
 `;
 
-// Function to fetch issues from Linear GraphQL API
+// Store all fetched issues
+let allIssues = [];
+const DISPLAY_LIMIT = 20;
+const FETCH_BATCH_SIZE = 100;
+
+// Function to fetch a single page of issues
+async function fetchIssuesPage(token, after = null) {
+    const variables = {
+        first: FETCH_BATCH_SIZE,
+        after: after
+    };
+
+    const response = await fetch('/api/linear', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            query: ISSUES_QUERY,
+            variables: variables
+        })
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Response error:', errorText);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    if (data.errors) {
+        console.error('GraphQL errors:', data.errors);
+        throw new Error(data.errors[0].message || 'GraphQL error occurred');
+    }
+
+    return data.data?.issues || { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } };
+}
+
+// Function to fetch ALL issues using pagination
+async function fetchAllIssues(token) {
+    let allFetchedIssues = [];
+    let hasNextPage = true;
+    let cursor = null;
+    let pageCount = 0;
+
+    console.log('Starting to fetch all issues with pagination...');
+
+    while (hasNextPage) {
+        pageCount++;
+        console.log(`Fetching page ${pageCount}...`);
+
+        const issuesPage = await fetchIssuesPage(token, cursor);
+        const issues = issuesPage.nodes || [];
+
+        allFetchedIssues = allFetchedIssues.concat(issues);
+
+        hasNextPage = issuesPage.pageInfo?.hasNextPage || false;
+        cursor = issuesPage.pageInfo?.endCursor || null;
+
+        console.log(`Page ${pageCount}: fetched ${issues.length} issues. Total so far: ${allFetchedIssues.length}`);
+
+        // Update loading message to show progress
+        updateLoadingMessage(`Fetching issues... (${allFetchedIssues.length} found)`);
+
+        // Safety check to prevent infinite loops
+        if (pageCount > 100) {
+            console.warn('Reached maximum page limit (100). Stopping pagination.');
+            break;
+        }
+    }
+
+    console.log(`Finished fetching all issues. Total: ${allFetchedIssues.length} issues across ${pageCount} pages.`);
+    return allFetchedIssues;
+}
+
+// Main function to fetch issues from Linear GraphQL API
 async function fetchIssues() {
     const tokenInput = document.getElementById('token-input');
     const token = tokenInput.value.trim();
@@ -52,42 +133,21 @@ async function fetchIssues() {
     hideError();
     hideResults();
 
+    // Reset the global issues array
+    allIssues = [];
+
     console.log('Starting fetch request to Linear API...');
 
     try {
-        // Test basic connectivity first
-        console.log('Testing network connectivity...');
+        // Fetch all issues using pagination
+        allIssues = await fetchAllIssues(token);
 
-        const response = await fetch('/api/linear', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                query: ISSUES_QUERY
-            })
-        });
+        console.log(`Total issues fetched: ${allIssues.length}`);
+        console.log(`Displaying first ${Math.min(allIssues.length, DISPLAY_LIMIT)} issues`);
 
-        console.log('Response received:', response.status, response.statusText);
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Response error:', errorText);
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        console.log('Data received:', data);
-
-        if (data.errors) {
-            console.error('GraphQL errors:', data.errors);
-            throw new Error(data.errors[0].message || 'GraphQL error occurred');
-        }
-
-        const issues = data.data?.issues?.nodes || [];
-        console.log('Issues found:', issues.length);
-        displayIssues(issues);
+        // Display only the first 20 issues
+        const issuesToDisplay = allIssues.slice(0, DISPLAY_LIMIT);
+        displayIssues(issuesToDisplay, allIssues.length);
 
     } catch (error) {
         console.error('Detailed error information:', {
@@ -114,7 +174,7 @@ async function fetchIssues() {
 }
 
 // Function to display issues in the table
-function displayIssues(issues) {
+function displayIssues(issues, totalCount = null) {
     const tbody = document.getElementById('issues-tbody');
     const issueCount = document.getElementById('issue-count');
 
@@ -125,7 +185,12 @@ function displayIssues(issues) {
         tbody.innerHTML = '<tr><td colspan="8" class="no-data">No issues found</td></tr>';
         issueCount.textContent = '0 issues';
     } else {
-        issueCount.textContent = `${issues.length} issue${issues.length !== 1 ? 's' : ''}`;
+        // Show both displayed count and total count if available
+        if (totalCount !== null && totalCount > issues.length) {
+            issueCount.textContent = `Showing ${issues.length} of ${totalCount} issue${totalCount !== 1 ? 's' : ''}`;
+        } else {
+            issueCount.textContent = `${issues.length} issue${issues.length !== 1 ? 's' : ''}`;
+        }
 
         issues.forEach(issue => {
             const row = createIssueRow(issue);
@@ -228,6 +293,13 @@ function showLoading(show) {
         loading.classList.remove('hidden');
     } else {
         loading.classList.add('hidden');
+    }
+}
+
+function updateLoadingMessage(message) {
+    const loading = document.getElementById('loading');
+    if (loading) {
+        loading.textContent = message;
     }
 }
 
