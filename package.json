@@ -1,0 +1,17 @@
+{
+  "name": "mindmap-pm",
+  "version": "1.0.0",
+  "description": "Linear Issues Viewer and other tools",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "node-fetch": "^3.3.2"
+  },
+  "private": true
+}

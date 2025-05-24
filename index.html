@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linear Issues Viewer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Linear Issues Viewer</h1>
+            <p>Enter your Linear API token to view your issues</p>
+        </header>
+
+        <div class="token-section">
+            <div class="input-group">
+                <label for="token-input">Linear API Token:</label>
+                <input 
+                    type="password" 
+                    id="token-input" 
+                    placeholder="Enter your Linear API token"
+                    autocomplete="off"
+                >
+                <button id="fetch-button" onclick="fetchIssues()">Fetch Issues</button>
+            </div>
+            <div class="help-text">
+                <p>
+                    <strong>How to get your Linear API token:</strong><br>
+                    1. Go to <a href="https://linear.app/settings/api" target="_blank">Linear Settings → API</a><br>
+                    2. Click "Create API key"<br>
+                    3. Give it a name and copy the generated token
+                </p>
+            </div>
+        </div>
+
+        <div id="loading" class="loading hidden">
+            <div class="spinner"></div>
+            <p>Fetching issues...</p>
+        </div>
+
+        <div id="error-message" class="error hidden"></div>
+
+        <div id="results-section" class="results-section hidden">
+            <div class="results-header">
+                <h2>Issues</h2>
+                <span id="issue-count" class="issue-count"></span>
+            </div>
+            
+            <div class="table-container">
+                <table id="issues-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Title</th>
+                            <th>Status</th>
+                            <th>Priority</th>
+                            <th>Assignee</th>
+                            <th>Team</th>
+                            <th>Created</th>
+                            <th>Updated</th>
+                        </tr>
+                    </thead>
+                    <tbody id="issues-tbody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
