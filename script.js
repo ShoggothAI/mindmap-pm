@@ -157,8 +157,6 @@ async function fetchIssues() {
         token = await getCachedToken();
         if (token) {
             console.log('Using cached token from server');
-            // Update the UI to show we're using a cached token
-            showInfo('Using cached Linear API token from server');
         } else {
             showError('Please enter your Linear API token');
             return;
@@ -362,7 +360,7 @@ function showInfo(message) {
         const errorDiv = document.getElementById('error-message');
         errorDiv.parentNode.insertBefore(infoDiv, errorDiv);
     }
-    infoDiv.textContent = message;
+    infoDiv.innerHTML = message;
     infoDiv.classList.remove('hidden');
     hideError(); // Hide error when showing info
 }
@@ -401,18 +399,48 @@ document.getElementById('token-input').addEventListener('input', function() {
 async function initializePage() {
     const tokenStatus = await checkCachedToken();
     if (tokenStatus.hasToken) {
-        const tokenInput = document.getElementById('token-input');
-        const fetchButton = document.getElementById('fetch-button');
+        // Hide the token input section since we have a cached token
+        const tokenSection = document.getElementById('token-section');
+        tokenSection.style.display = 'none';
 
-        // Update UI to indicate cached token is available
-        tokenInput.placeholder = 'Cached token available - leave empty to use cached token';
-        fetchButton.textContent = 'Fetch Issues (using cached token)';
+        // Update header to indicate we're using cached token
+        const headerP = document.querySelector('header p');
+        headerP.textContent = 'Using cached Linear API token - fetching your issues...';
 
-        showInfo('Cached Linear API token detected. You can fetch issues without entering a token.');
+        // Update the page title to reflect cached token usage
+        const headerH1 = document.querySelector('header h1');
+        headerH1.textContent = 'Linear Issues Viewer (Cached Token)';
 
-        // Optionally auto-fetch issues if you want
-        // fetchIssues();
+        showInfo('Using cached Linear API token from server environment. <a href="#" onclick="showManualTokenInput(); return false;">Use manual token instead</a>');
+
+        // Auto-fetch issues since we have a cached token
+        fetchIssues();
+    } else {
+        // Show token input section since no cached token is available
+        const headerP = document.querySelector('header p');
+        headerP.textContent = 'Enter your Linear API token to view your issues';
     }
+}
+
+// Function to show manual token input (fallback option)
+function showManualTokenInput() {
+    const tokenSection = document.getElementById('token-section');
+    const headerP = document.querySelector('header p');
+    const headerH1 = document.querySelector('header h1');
+
+    // Show the token section
+    tokenSection.style.display = 'block';
+
+    // Reset header text
+    headerH1.textContent = 'Linear Issues Viewer';
+    headerP.textContent = 'Enter your Linear API token to view your issues';
+
+    // Hide info message and show token input
+    hideInfo();
+    hideResults();
+
+    // Focus on token input
+    document.getElementById('token-input').focus();
 }
 
 // Initialize page when DOM is loaded
