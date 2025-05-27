@@ -1,7 +1,7 @@
 {
   "name": "mindmap-pm",
   "version": "1.0.0",
-  "description": "Linear Issues Viewer and other tools",
+  "description": "Linear Issues Viewer with mindmap visualization",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
