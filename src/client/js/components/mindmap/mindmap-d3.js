@@ -106,23 +106,15 @@ function updateMindMapVisualization() {
     root.x = height / 2;
     root.y = 100;
 
-    // Adjust positioning for children
-    root.descendants().forEach((d) => {
-        if (d.depth > 0) {
-            d.y = 100 + d.depth * 250;
-        }
-    });
+    // We'll calculate positions after nodes are created with actual dimensions
+    // For now, just use the tree layout for vertical positioning
 
-    // Create links (curved paths)
-    g.selectAll(".link")
+    // Create links (curved paths) - will be updated after nodes are created
+    const links = g.selectAll(".link")
         .data(root.links())
         .enter()
         .append("path")
         .attr("class", "link")
-        .attr("d", d3.linkHorizontal()
-            .x(d => d.y)
-            .y(d => d.x)
-        )
         .style("fill", "none")
         .style("stroke", "#8B5CF6")
         .style("stroke-width", 3)
@@ -324,6 +316,85 @@ function updateMindMapVisualization() {
                 updateMindMapVisualization();
             });
         }
+    });
+
+    // Now that nodes are created with actual dimensions, recalculate ALL positions
+    const CONSTANT_SPACING = 200; // Distance from parent +/- control to child circle
+
+    function recalculateAllPositions() {
+        // Process all nodes level by level to ensure proper cascading
+        const nodesByLevel = {};
+        root.descendants().forEach(d => {
+            if (!nodesByLevel[d.depth]) nodesByLevel[d.depth] = [];
+            nodesByLevel[d.depth].push(d);
+        });
+
+        // Start from level 1 (children of root) and cascade down
+        for (let level = 1; level < Object.keys(nodesByLevel).length; level++) {
+            nodesByLevel[level].forEach(node => {
+                const parent = node.parent;
+                if (!parent) return;
+
+                // Get actual parent node width
+                const parentNodeGroup = nodes.filter(n => n.data.id === parent.data.id);
+                const parentRect = parentNodeGroup.select("rect");
+                const parentWidth = +parentRect.attr("data-width");
+
+                // Parent +/- control position (right edge of parent + button offset)
+                const parentControlX = parent.y + (parentWidth / 2) + 5 + 12;
+
+                // Child position = parent control + constant spacing
+                const newChildY = parentControlX + CONSTANT_SPACING;
+                console.log(`Level ${level}: Repositioning ${node.data.name} from ${node.y} to ${newChildY}`);
+
+                // Update node position
+                node.y = newChildY;
+
+                // Update the node's visual transform
+                const childNodeGroup = nodes.filter(n => n.data.id === node.data.id);
+                childNodeGroup.attr("transform", `translate(${node.y},${node.x})`);
+
+                // Update the connection circle position
+                const childRect = childNodeGroup.select("rect");
+                const childWidth = +childRect.attr("data-width");
+                const newCircleX = -(childWidth / 2) - 8;
+                childNodeGroup.select(".connection-circle")
+                    .attr("cx", newCircleX)
+                    .attr("cy", 0);
+            });
+        }
+    }
+
+    // Recalculate all positions with actual node dimensions
+    recalculateAllPositions();
+
+    // Update links to connect from +/- controls to connection circles
+    links.attr("d", function(d) {
+        const sourceNode = d.source;
+        const targetNode = d.target;
+
+        // Get source node dimensions and +/- control position
+        const sourceNodeGroup = nodes.filter(node => node.data.id === sourceNode.data.id);
+        const sourceRect = sourceNodeGroup.select("rect");
+        const sourceWidth = +sourceRect.attr("data-width");
+
+        // Source point: +/- control position (all nodes with children have +/- controls)
+        const sourceX = sourceNode.y + (sourceWidth / 2) + 5 + 12; // +5 for button offset, +12 for button radius
+        const sourceY = sourceNode.x;
+
+        // Get target node dimensions and connection circle position
+        const targetNodeGroup = nodes.filter(node => node.data.id === targetNode.data.id);
+        const targetRect = targetNodeGroup.select("rect");
+        const targetWidth = +targetRect.attr("data-width");
+
+        // Target point: connection circle position (left edge of child node)
+        const targetX = targetNode.y - (targetWidth / 2) - 8; // -8 for circle offset
+        const targetY = targetNode.x;
+
+        // Create curved path
+        const midX = (sourceX + targetX) / 2;
+
+        return `M${sourceX},${sourceY} C${midX},${sourceY} ${midX},${targetY} ${targetX},${targetY}`;
     });
 
     // Add node click handlers
