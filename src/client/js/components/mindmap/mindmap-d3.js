@@ -340,23 +340,26 @@ function updateMindMapVisualization() {
                 const parentRect = parentNodeGroup.select("rect");
                 const parentWidth = +parentRect.attr("data-width");
 
+                // Get actual child node width too
+                const childNodeGroup = nodes.filter(n => n.data.id === node.data.id);
+                const childRect = childNodeGroup.select("rect");
+                const childWidth = +childRect.attr("data-width");
+
                 // Parent +/- control position (right edge of parent + button offset)
                 const parentControlX = parent.y + (parentWidth / 2) + 5 + 12;
 
-                // Child position = parent control + constant spacing
-                const newChildY = parentControlX + CONSTANT_SPACING;
-                console.log(`Level ${level}: Repositioning ${node.data.name} from ${node.y} to ${newChildY}`);
+                // Child CENTER position = parent control + constant spacing + half child width
+                // This ensures the child's connection circle (at left edge) is exactly CONSTANT_SPACING from parent control
+                const newChildY = parentControlX + CONSTANT_SPACING + (childWidth / 2);
+                console.log(`Level ${level}: Repositioning ${node.data.name} from ${node.y} to ${newChildY} (parent control: ${parentControlX}, child width: ${childWidth})`);
 
                 // Update node position
                 node.y = newChildY;
 
                 // Update the node's visual transform
-                const childNodeGroup = nodes.filter(n => n.data.id === node.data.id);
                 childNodeGroup.attr("transform", `translate(${node.y},${node.x})`);
 
-                // Update the connection circle position
-                const childRect = childNodeGroup.select("rect");
-                const childWidth = +childRect.attr("data-width");
+                // Update the connection circle position (should be at left edge)
                 const newCircleX = -(childWidth / 2) - 8;
                 childNodeGroup.select(".connection-circle")
                     .attr("cx", newCircleX)
@@ -367,6 +370,70 @@ function updateMindMapVisualization() {
 
     // Recalculate all positions with actual node dimensions
     recalculateAllPositions();
+
+    // Test: Measure actual distances between +/- controls and connection circles
+    function measureConnectionDistances() {
+        const distances = [];
+
+        root.links().forEach(link => {
+            const sourceNode = link.source;
+            const targetNode = link.target;
+
+            // Get source node elements
+            const sourceNodeGroup = nodes.filter(n => n.data.id === sourceNode.data.id);
+            const sourceRect = sourceNodeGroup.select("rect");
+            const sourceWidth = +sourceRect.attr("data-width");
+
+            // Get target node elements
+            const targetNodeGroup = nodes.filter(n => n.data.id === targetNode.data.id);
+            const targetCircle = targetNodeGroup.select(".connection-circle");
+
+            if (!sourceRect.empty() && !targetCircle.empty()) {
+                // Calculate +/- control position (source)
+                const controlX = sourceNode.y + (sourceWidth / 2) + 5 + 12;
+
+                // Calculate connection circle position (target)
+                const circleX = targetNode.y + (+targetCircle.attr("cx"));
+
+                // Calculate horizontal distance
+                const distance = circleX - controlX;
+
+                distances.push({
+                    source: sourceNode.data.name,
+                    target: targetNode.data.name,
+                    distance: distance,
+                    controlX: controlX,
+                    circleX: circleX
+                });
+            }
+        });
+
+        console.log('Connection distances:', distances);
+
+        // Check if all distances are the same
+        const uniqueDistances = [...new Set(distances.map(d => Math.round(d.distance)))];
+        console.log('Unique distances (rounded):', uniqueDistances);
+
+        if (uniqueDistances.length === 1) {
+            console.log('✅ SUCCESS: All connections have the same distance:', uniqueDistances[0]);
+        } else {
+            console.log('❌ PROBLEM: Connections have different distances. Expected constant spacing.');
+        }
+
+        return distances;
+    }
+
+    // Measure distances after a short delay to ensure rendering is complete
+    setTimeout(() => {
+        const distances = measureConnectionDistances();
+
+        // Send results to test endpoint
+        fetch('/api/test-distances', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ distances })
+        }).catch(err => console.log('Could not send test results:', err));
+    }, 100);
 
     // Update links to connect from +/- controls to connection circles
     links.attr("d", function(d) {

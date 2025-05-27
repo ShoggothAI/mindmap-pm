@@ -149,4 +149,45 @@ router.get('/test-mindmap', async (req, res) => {
     }
 });
 
+// Test endpoint to measure mindmap connection distances
+router.get('/test-distances', (req, res) => {
+    res.json({
+        message: "This endpoint will be used to test mindmap connection distances",
+        instructions: "Call this endpoint from the frontend after mindmap is rendered to get actual distance measurements"
+    });
+});
+
+// Receive distance measurements from frontend
+router.post('/test-distances', (req, res) => {
+    const { distances } = req.body;
+
+    console.log('\n=== MINDMAP DISTANCE TEST RESULTS ===');
+    console.log(`Measured ${distances.length} connections:`);
+
+    distances.forEach((d, i) => {
+        console.log(`${i + 1}. ${d.source} → ${d.target}: ${d.distance.toFixed(1)}px`);
+    });
+
+    // Check if all distances are the same
+    const uniqueDistances = [...new Set(distances.map(d => Math.round(d.distance)))];
+    console.log('\nUnique distances (rounded):', uniqueDistances);
+
+    if (uniqueDistances.length === 1) {
+        console.log('✅ SUCCESS: All connections have constant spacing of', uniqueDistances[0], 'pixels');
+    } else {
+        console.log('❌ PROBLEM: Inconsistent spacing detected!');
+        console.log('   Expected: All distances should be the same');
+        console.log('   Actual: Found', uniqueDistances.length, 'different distances:', uniqueDistances);
+    }
+    console.log('=====================================\n');
+
+    res.json({
+        success: true,
+        totalConnections: distances.length,
+        uniqueDistances: uniqueDistances,
+        isConstantSpacing: uniqueDistances.length === 1,
+        expectedDistance: 200 // Our CONSTANT_SPACING value
+    });
+});
+
 module.exports = router;
