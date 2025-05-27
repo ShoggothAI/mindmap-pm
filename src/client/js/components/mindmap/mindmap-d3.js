@@ -54,8 +54,14 @@ function updateMindMapVisualization() {
     // Clear existing elements
     svgElement.selectAll("*").remove();
 
-    const width = 1000;
-    const height = 600;
+    // Get actual container dimensions
+    const container = document.getElementById('interactive-mindmap-container');
+    const containerRect = container.getBoundingClientRect();
+    const width = Math.max(containerRect.width, 1000);
+    const height = Math.max(containerRect.height, 600);
+
+    console.log('Container dimensions:', containerRect.width, 'x', containerRect.height);
+    console.log('Using dimensions:', width, 'x', height);
 
     const g = svgElement.append("g");
 
@@ -83,7 +89,9 @@ function updateMindMapVisualization() {
     // Create tree layout
     const treeLayout = d3.tree()
         .size([height - 100, width - 200])
-        .separation(() => 1.2);
+        .separation((a, b) => {
+            return a.parent === b.parent ? 2 : 3;
+        });
 
     treeLayout(root);
 
@@ -94,7 +102,7 @@ function updateMindMapVisualization() {
     // Adjust positioning for children
     root.descendants().forEach((d) => {
         if (d.depth > 0) {
-            d.y = 100 + d.depth * 200;
+            d.y = 100 + d.depth * 250;
         }
     });
 
@@ -130,20 +138,48 @@ function updateMindMapVisualization() {
         .style("stroke", d => getStatusColor(d.data.status))
         .style("stroke-width", d => d.data.id === selectedNodeId ? 3 : 3)
         .each(function(d) {
-            // Calculate text dimensions for proper rect sizing
-            const tempText = g.append("text")
-                .text(d.data.name || "New Issue")
-                .style("font-size", d.depth === 0 ? "16px" : "14px")
-                .style("font-weight", d.depth === 0 ? "bold" : "normal");
+            const text = d.data.name || "New Issue";
+            const fontSize = d.depth === 0 ? 16 : 14;
 
-            const bbox = tempText.node().getBBox();
+            // Create temporary text element to measure
+            const tempText = d3.select(this.parentNode)
+                .append("text")
+                .text(text)
+                .style("font-size", fontSize + "px")
+                .style("font-weight", d.depth === 0 ? "bold" : "normal")
+                .style("font-family", "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif");
+
+            let bbox;
+            try {
+                bbox = tempText.node().getBBox();
+                console.log('Text:', text, 'BBox:', bbox);
+            } catch (e) {
+                console.error('Error getting bbox:', e);
+                bbox = null;
+            }
+
+            // Remove temporary text
             tempText.remove();
 
+            // Use fallback calculation if bbox is invalid
+            let width, height;
+            if (!bbox || bbox.width === 0 || bbox.height === 0) {
+                // Fallback: estimate dimensions based on text length and font size
+                width = Math.max(text.length * fontSize * 0.7 + 30, 100);
+                height = Math.max(fontSize * 1.5 + 16, 40);
+                console.log('Using fallback dimensions for:', text, 'width:', width, 'height:', height);
+            } else {
+                width = Math.max(bbox.width + 30, 80);
+                height = Math.max(bbox.height + 16, 32);
+            }
+
             d3.select(this)
-                .attr("x", -(bbox.width / 2) - 15)
-                .attr("y", -(bbox.height / 2) - 8)
-                .attr("width", bbox.width + 30)
-                .attr("height", bbox.height + 16);
+                .attr("x", -(width / 2))
+                .attr("y", -(height / 2))
+                .attr("width", width)
+                .attr("height", height)
+                .attr("data-width", width)
+                .attr("data-height", height);
         });
 
     // Add node text
@@ -161,9 +197,10 @@ function updateMindMapVisualization() {
         if (d.depth > 0) {
             const nodeGroup = d3.select(this);
             const rect = nodeGroup.select("rect");
-            const rectBBox = rect.node().getBBox();
+            const width = +rect.attr("data-width");
+            const height = +rect.attr("data-height");
 
-            const circleX = rectBBox.x - 8;
+            const circleX = -(width / 2) - 8;
             const circleY = 0;
 
             const connectionCircle = nodeGroup.append("circle")
@@ -235,9 +272,10 @@ function updateMindMapVisualization() {
         if (originalNode && originalNode.children && originalNode.children.length > 0) {
             const nodeGroup = d3.select(this);
             const rect = nodeGroup.select("rect");
-            const rectBBox = rect.node().getBBox();
+            const width = +rect.attr("data-width");
+            const height = +rect.attr("data-height");
 
-            const buttonX = rectBBox.x + rectBBox.width + 5;
+            const buttonX = (width / 2) + 5;
             const buttonY = 0;
 
             const buttonGroup = nodeGroup.append("g")
