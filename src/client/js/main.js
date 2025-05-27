@@ -72,22 +72,13 @@ async function fetchIssues() {
 // Function to display issues in the table
 function displayIssues(issues, totalCount = null) {
     const tbody = document.getElementById('issues-tbody');
-    const issueCount = document.getElementById('issue-count');
 
     // Clear existing rows
     tbody.innerHTML = '';
 
     if (issues.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" class="no-data">No issues found</td></tr>';
-        issueCount.textContent = '0 issues';
     } else {
-        // Show both displayed count and total count if available
-        if (totalCount !== null && totalCount > issues.length) {
-            issueCount.textContent = `Showing ${issues.length} of ${totalCount} issue${totalCount !== 1 ? 's' : ''}`;
-        } else {
-            issueCount.textContent = `${issues.length} issue${issues.length !== 1 ? 's' : ''}`;
-        }
-
         issues.forEach(issue => {
             const row = createIssueRow(issue);
             tbody.appendChild(row);
@@ -265,13 +256,9 @@ async function initializePage() {
         const tokenSection = document.getElementById('token-section');
         tokenSection.style.display = 'none';
 
-        // Update header to indicate we're using cached token
-        const headerP = document.querySelector('header p');
-        headerP.textContent = 'Using cached Linear API token - fetching your issues...';
-
-        // Update the page title to reflect cached token usage
-        const headerH1 = document.querySelector('header h1');
-        headerH1.textContent = 'Linear Issues Viewer (Cached Token)';
+        // Hide the header section when using cached token
+        const header = document.querySelector('header');
+        header.style.display = 'none';
 
         // showInfo('Using cached Linear API token from server environment. <a href="#" onclick="showManualTokenInput(); return false;">Use manual token instead</a>');
 
@@ -281,6 +268,11 @@ async function initializePage() {
 
         // Auto-fetch issues since we have a cached token
         fetchIssues();
+
+        // Switch to Interactive Mind Map tab by default
+        setTimeout(() => {
+            switchTab('interactive-mindmap');
+        }, 100);
     } else {
         // Show token input section since no cached token is available
         const headerP = document.querySelector('header p');
@@ -340,34 +332,7 @@ function switchTab(tabName, event) {
     }
 }
 
-// Initialize page and check for cached token
-async function initializePage() {
-    const tokenStatus = await checkCachedToken();
-    if (tokenStatus.hasToken) {
-        // Hide the token input section since we have a cached token
-        const tokenSection = document.getElementById('token-section');
-        tokenSection.style.display = 'none';
 
-        // Update header to indicate we're using cached token
-        const headerP = document.querySelector('header p');
-        headerP.textContent = 'Using cached Linear API token - fetching your issues...';
-
-        // Update the page title to reflect cached token usage
-        const headerH1 = document.querySelector('header h1');
-        headerH1.textContent = 'Linear Issues Viewer (Cached Token)';
-
-        // Hide any existing error and info messages
-        hideError();
-        hideInfo();
-
-        // Auto-fetch issues since we have a cached token
-        fetchIssues();
-    } else {
-        // Show token input section since no cached token is available
-        const headerP = document.querySelector('header p');
-        headerP.textContent = 'Enter your Linear API token to view your issues';
-    }
-}
 
 // Function to show manual token input (fallback option)
 function showManualTokenInput() {
@@ -388,6 +353,12 @@ function showManualTokenInput() {
 
     // Focus on token input
     document.getElementById('token-input').focus();
+}
+
+// Function to toggle instructions visibility
+function toggleInstructions() {
+    const instructions = document.querySelector('.mindmap-instructions');
+    instructions.classList.toggle('collapsed');
 }
 
 // Initialize page when DOM is loaded

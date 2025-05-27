@@ -42,11 +42,6 @@
         <div id="error-message" class="error hidden" style="display: none !important;"></div>
 
         <div id="results-section" class="results-section hidden">
-            <div class="results-header">
-                <h2>Issues</h2>
-                <span id="issue-count" class="issue-count"></span>
-            </div>
-
             <!-- Tab Navigation -->
             <div class="tab-navigation">
                 <button class="tab-button active" onclick="switchTab('table', event)">Table View</button>
@@ -79,15 +74,20 @@
 
             <!-- Interactive Mind Map View -->
             <div id="interactive-mindmap-view" class="tab-content">
-                <div class="mindmap-instructions">
-                    <p><strong>Instructions:</strong></p>
-                    <ul>
-                        <li>Double-click nodes to edit</li>
-                        <li>Drag nodes to reposition</li>
-                        <li>Right-click nodes to add children or delete</li>
-                        <li>Press Tab to create new issues</li>
-                        <li>Press Delete to remove selected nodes</li>
-                    </ul>
+                <div class="mindmap-instructions collapsed">
+                    <div class="instructions-header" onclick="toggleInstructions()">
+                        <span class="instructions-title"><strong>Instructions</strong></span>
+                        <span class="instructions-toggle">▶</span>
+                    </div>
+                    <div class="instructions-content">
+                        <ul>
+                            <li>Double-click nodes to edit</li>
+                            <li>Drag nodes to reposition</li>
+                            <li>Right-click nodes to add children or delete</li>
+                            <li>Press Tab to create new issues</li>
+                            <li>Press Delete to remove selected nodes</li>
+                        </ul>
+                    </div>
                 </div>
                 <div id="interactive-mindmap-container"></div>
             </div>
