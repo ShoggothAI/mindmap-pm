@@ -182,7 +182,8 @@ header p {
     box-shadow: none;
     flex: 1;
     height: 100%;
-    overflow: auto;
+    display: flex;
+    flex-direction: column;
 }
 
 
@@ -436,7 +437,10 @@ tr:hover {
 }
 
 .tab-content.active {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    height: 100%;
 }
 
 
@@ -524,11 +528,11 @@ tr:hover {
 }
 
 #interactive-mindmap-container {
-    height: calc(100vh - 200px);
-    min-height: 400px;
+    width: 100%;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
     background: white;
+    flex: 1;
 }
 
 /* Dialog Styles */
