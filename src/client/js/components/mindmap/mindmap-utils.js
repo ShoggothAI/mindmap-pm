@@ -92,7 +92,7 @@ function addChildNode(parentNode, childName) {
     if (!parentNode.children) {
         parentNode.children = [];
     }
-    
+
     const newChild = new MindMapNode(
         Date.now().toString(),
         childName,
@@ -101,7 +101,7 @@ function addChildNode(parentNode, childName) {
         "backlog",
         []
     );
-    
+
     parentNode.children.push(newChild);
     return newChild;
 }
@@ -121,14 +121,14 @@ function updateNode(node, updates) {
 // Find a node by ID in the tree
 function findNodeById(root, id) {
     if (root.id === id) return root;
-    
+
     if (root.children) {
         for (const child of root.children) {
             const found = findNodeById(child, id);
             if (found) return found;
         }
     }
-    
+
     return null;
 }
 
@@ -145,20 +145,7 @@ function convertLinearIssuesToMindMap(issues) {
         return createMindMapData(); // Return sample data if no issues
     }
 
-    // Create a map of issues by ID for quick lookup
-    const issueMap = new Map();
-    const rootIssues = [];
-    const childIssues = [];
-
-    // First pass: categorize issues
-    issues.forEach(issue => {
-        issueMap.set(issue.id, issue);
-        if (issue.parent?.id) {
-            childIssues.push(issue);
-        } else {
-            rootIssues.push(issue);
-        }
-    });
+    console.log(`Converting ${issues.length} Linear issues to mind map structure`);
 
     // Convert Linear status to our status format
     function convertStatus(linearState) {
@@ -185,56 +172,108 @@ function convertLinearIssuesToMindMap(issues) {
         );
     }
 
-    // If we have no clear hierarchy, create a simple structure
-    if (rootIssues.length === 0 || rootIssues.length === issues.length) {
-        const root = new MindMapNode(
-            "root",
-            "Linear Issues",
-            "Issues from Linear workspace",
-            null,
-            "in-progress",
-            []
-        );
+    // Create a map of issues by ID for quick lookup
+    const issueMap = new Map();
+    issues.forEach(issue => {
+        issueMap.set(issue.id, issue);
+    });
 
-        // Add first 10 issues as direct children
-        const limitedIssues = issues.slice(0, 10);
-        limitedIssues.forEach(issue => {
-            const mindMapNode = convertIssue(issue, "root");
-            root.children.push(mindMapNode);
-        });
+    // Group issues by team/project
+    const projectGroups = new Map();
+    const issuesWithoutTeam = [];
 
-        return root;
-    }
+    issues.forEach(issue => {
+        const teamName = issue.team?.name || issue.team?.key;
+        if (teamName) {
+            if (!projectGroups.has(teamName)) {
+                projectGroups.set(teamName, []);
+            }
+            projectGroups.get(teamName).push(issue);
+        } else {
+            issuesWithoutTeam.push(issue);
+        }
+    });
 
-    // Build hierarchy with actual parent-child relationships
+    console.log(`Found ${projectGroups.size} teams/projects:`, Array.from(projectGroups.keys()));
+    console.log(`Found ${issuesWithoutTeam.length} issues without team assignment`);
+
+    // Create the root node
     const root = new MindMapNode(
         "root",
-        "Linear Issues",
-        "Issues from Linear workspace",
+        "Linear Workspace",
+        "Projects and issues from Linear workspace",
         null,
         "in-progress",
         []
     );
 
-    // Add root issues (limit to 5 to keep manageable)
-    const limitedRoots = rootIssues.slice(0, 5);
-    limitedRoots.forEach(rootIssue => {
-        const rootNode = convertIssue(rootIssue, "root");
-        
-        // Add children recursively
-        function addChildren(parentNode, parentIssueId) {
-            const children = childIssues.filter(child => child.parent?.id === parentIssueId);
-            children.slice(0, 5).forEach(childIssue => { // Limit children per parent
-                const childNode = convertIssue(childIssue, parentNode.id);
-                parentNode.children.push(childNode);
-                addChildren(childNode, childIssue.id); // Recursive for grandchildren
-            });
-        }
+    // Helper function to add children recursively
+    function addChildren(parentNode, parentIssueId, allIssues) {
+        const children = allIssues.filter(issue => issue.parent?.id === parentIssueId);
+        children.forEach(childIssue => {
+            const childNode = convertIssue(childIssue, parentNode.id);
+            parentNode.children.push(childNode);
+            // Recursively add grandchildren
+            addChildren(childNode, childIssue.id, allIssues);
+        });
+    }
 
-        addChildren(rootNode, rootIssue.id);
-        root.children.push(rootNode);
+    // Process each project/team
+    projectGroups.forEach((teamIssues, teamName) => {
+        // Create project node
+        const projectNode = new MindMapNode(
+            `project-${teamName}`,
+            teamName,
+            `Issues from ${teamName} team`,
+            "root",
+            "in-progress",
+            []
+        );
+
+        // Find issues without parent (root issues for this team)
+        const rootIssuesForTeam = teamIssues.filter(issue => !issue.parent?.id);
+
+        console.log(`Team ${teamName}: ${teamIssues.length} total issues, ${rootIssuesForTeam.length} root issues`);
+
+        // Add root issues as children of the project node
+        rootIssuesForTeam.forEach(rootIssue => {
+            const issueNode = convertIssue(rootIssue, projectNode.id);
+            projectNode.children.push(issueNode);
+            // Add children recursively
+            addChildren(issueNode, rootIssue.id, teamIssues);
+        });
+
+        root.children.push(projectNode);
     });
 
+    // Handle issues without team assignment
+    if (issuesWithoutTeam.length > 0) {
+        const unassignedNode = new MindMapNode(
+            "project-unassigned",
+            "Unassigned Issues",
+            "Issues without team assignment",
+            "root",
+            "backlog",
+            []
+        );
+
+        // Find root issues (without parent) among unassigned issues
+        const rootUnassignedIssues = issuesWithoutTeam.filter(issue => !issue.parent?.id);
+
+        console.log(`Unassigned: ${issuesWithoutTeam.length} total issues, ${rootUnassignedIssues.length} root issues`);
+
+        // Add root issues as children of the unassigned node
+        rootUnassignedIssues.forEach(rootIssue => {
+            const issueNode = convertIssue(rootIssue, unassignedNode.id);
+            unassignedNode.children.push(issueNode);
+            // Add children recursively
+            addChildren(issueNode, rootIssue.id, issuesWithoutTeam);
+        });
+
+        root.children.push(unassignedNode);
+    }
+
+    console.log(`Created mind map with ${root.children.length} project nodes`);
     return root;
 }
 

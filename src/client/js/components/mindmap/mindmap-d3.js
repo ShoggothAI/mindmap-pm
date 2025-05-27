@@ -10,10 +10,17 @@ let svgElement = null;
 function initializeInteractiveMindMap(issues = null) {
     console.log('Initializing interactive mind map with', issues ? issues.length : 0, 'issues');
 
+    if (issues && issues.length > 0) {
+        console.log('Sample of issues:', issues.slice(0, 3));
+    }
+
     // Convert issues to mind map data or use sample data
     if (issues && issues.length > 0) {
+        console.log('Converting Linear issues to mind map...');
         mindMapData = convertLinearIssuesToMindMap(issues);
+        console.log('Mind map data created:', mindMapData);
     } else {
+        console.log('No issues provided, using sample data');
         mindMapData = createMindMapData();
     }
 

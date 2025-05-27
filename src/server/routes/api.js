@@ -61,4 +61,92 @@ router.post('/linear', async (req, res) => {
     }
 });
 
+// Test endpoint to verify mind map conversion
+router.get('/test-mindmap', async (req, res) => {
+    try {
+        const { default: fetch } = await import('node-fetch');
+
+        // Get cached token
+        const token = process.env.ANOTHER_LINEAR_API_KEY || process.env.LINEAR_API_KEY;
+        if (!token) {
+            return res.status(400).json({ error: 'No token available' });
+        }
+
+        // Fetch some issues
+        const response = await fetch('https://api.linear.app/graphql', {
+            method: 'POST',
+            headers: {
+                'Authorization': token,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                query: `
+                    query {
+                        issues(first: 10) {
+                            nodes {
+                                id
+                                title
+                                description
+                                team {
+                                    name
+                                    key
+                                }
+                                parent {
+                                    id
+                                }
+                                state {
+                                    name
+                                    type
+                                }
+                            }
+                        }
+                    }
+                `
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.errors) {
+            return res.status(400).json({ errors: data.errors });
+        }
+
+        const issues = data.data?.issues?.nodes || [];
+
+        // Group by team to show structure
+        const teamGroups = {};
+        const issuesWithoutTeam = [];
+
+        issues.forEach(issue => {
+            const teamName = issue.team?.name || issue.team?.key;
+            if (teamName) {
+                if (!teamGroups[teamName]) {
+                    teamGroups[teamName] = { total: 0, rootIssues: 0, issues: [] };
+                }
+                teamGroups[teamName].total++;
+                teamGroups[teamName].issues.push(issue);
+                if (!issue.parent?.id) {
+                    teamGroups[teamName].rootIssues++;
+                }
+            } else {
+                issuesWithoutTeam.push(issue);
+            }
+        });
+
+        res.json({
+            totalIssues: issues.length,
+            teamGroups: Object.keys(teamGroups).map(teamName => ({
+                name: teamName,
+                ...teamGroups[teamName]
+            })),
+            unassignedIssues: issuesWithoutTeam.length,
+            sampleIssues: issues.slice(0, 3)
+        });
+
+    } catch (error) {
+        console.error('Test endpoint error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;

@@ -45,6 +45,14 @@ async function fetchIssues() {
         const issuesToDisplay = allIssues.slice(0, DISPLAY_LIMIT);
         displayIssues(issuesToDisplay, allIssues.length);
 
+        // Switch to Interactive Mind Map tab after issues are loaded
+        console.log('Issues loaded successfully, switching to Interactive Mind Map tab');
+        console.log('allIssues array contains:', allIssues.length, 'issues');
+        setTimeout(() => {
+            console.log('About to switch to interactive-mindmap tab');
+            switchTab('interactive-mindmap');
+        }, 100);
+
     } catch (error) {
         console.error('Detailed error information:', {
             name: error.name,
@@ -268,11 +276,6 @@ async function initializePage() {
 
         // Auto-fetch issues since we have a cached token
         fetchIssues();
-
-        // Switch to Interactive Mind Map tab by default
-        setTimeout(() => {
-            switchTab('interactive-mindmap');
-        }, 100);
     } else {
         // Show token input section since no cached token is available
         const headerP = document.querySelector('header p');
@@ -328,6 +331,11 @@ function switchTab(tabName, event) {
 
     // If switching to interactive mindmap tab, render the interactive mindmap
     if (tabName === 'interactive-mindmap') {
+        console.log('Switching to interactive mindmap tab');
+        console.log('allIssues at switch time:', allIssues ? allIssues.length : 'null/undefined', 'issues');
+        if (allIssues && allIssues.length > 0) {
+            console.log('Sample issue:', allIssues[0]);
+        }
         initializeInteractiveMindMap(allIssues);
     }
 }
