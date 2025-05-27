@@ -51,6 +51,7 @@
             <div class="tab-navigation">
                 <button class="tab-button active" onclick="switchTab('table', event)">Table View</button>
                 <button class="tab-button" onclick="switchTab('mindmap', event)">Mind Map</button>
+                <button class="tab-button" onclick="switchTab('interactive-mindmap', event)">Interactive Mind Map</button>
             </div>
 
             <!-- Table View -->
@@ -79,11 +80,69 @@
             <div id="mindmap-view" class="tab-content">
                 <div id="mindmap-container"></div>
             </div>
+
+            <!-- Interactive Mind Map View -->
+            <div id="interactive-mindmap-view" class="tab-content">
+                <div class="mindmap-instructions">
+                    <p><strong>Instructions:</strong></p>
+                    <ul>
+                        <li>Double-click nodes to edit</li>
+                        <li>Drag nodes to reposition</li>
+                        <li>Right-click nodes to add children or delete</li>
+                        <li>Press Tab to create new issues</li>
+                        <li>Press Delete to remove selected nodes</li>
+                    </ul>
+                </div>
+                <div id="interactive-mindmap-container"></div>
+            </div>
         </div>
+    </div>
+
+    <!-- Issue Dialog Modal -->
+    <div id="issue-dialog" class="dialog-overlay hidden">
+        <div class="dialog-content">
+            <div class="dialog-header">
+                <h3>Issue Details</h3>
+                <span id="issue-id-display" class="issue-id"></span>
+                <button class="dialog-close" onclick="closeIssueDialog()">&times;</button>
+            </div>
+            <div class="dialog-body">
+                <div class="form-group">
+                    <label for="issue-name">Name:</label>
+                    <input type="text" id="issue-name" placeholder="Issue name">
+                </div>
+                <div class="form-group">
+                    <label for="issue-description">Description:</label>
+                    <textarea id="issue-description" rows="4" placeholder="Detailed description of the issue"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="issue-status">Status:</label>
+                    <select id="issue-status">
+                        <option value="backlog">Backlog</option>
+                        <option value="in-progress">In Progress</option>
+                        <option value="done">Done</option>
+                    </select>
+                </div>
+            </div>
+            <div class="dialog-footer">
+                <button class="btn btn-secondary" onclick="closeIssueDialog()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveIssueDialog()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div id="context-menu" class="context-menu hidden">
+        <div class="context-menu-item" onclick="createChildNode()">Add Child Issue</div>
+        <div class="context-menu-item" onclick="editContextNode()">Edit Issue</div>
+        <div class="context-menu-item delete-item" onclick="deleteContextNode()">Delete Issue</div>
     </div>
 
     <script src="https://unpkg.com/d3@5/dist/d3.min.js"></script>
     <script src="https://unpkg.com/mmp@0.2.20/build/mmp.min.js"></script>
+    <script src="mindmap-utils.js"></script>
+    <script src="mindmap-d3.js"></script>
+    <script src="issue-dialog.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

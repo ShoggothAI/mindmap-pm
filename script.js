@@ -478,7 +478,8 @@ function switchTab(tabName, event) {
         const buttons = document.querySelectorAll('.tab-button');
         buttons.forEach(button => {
             if ((tabName === 'table' && button.textContent.includes('Table')) ||
-                (tabName === 'mindmap' && button.textContent.includes('Mind Map'))) {
+                (tabName === 'mindmap' && button.textContent.includes('Mind Map') && !button.textContent.includes('Interactive')) ||
+                (tabName === 'interactive-mindmap' && button.textContent.includes('Interactive'))) {
                 button.classList.add('active');
             }
         });
@@ -488,6 +489,11 @@ function switchTab(tabName, event) {
     // If switching to mindmap tab, render the mindmap
     if (tabName === 'mindmap' && allIssues.length > 0) {
         renderMindmap();
+    }
+
+    // If switching to interactive mindmap tab, render the interactive mindmap
+    if (tabName === 'interactive-mindmap') {
+        initializeInteractiveMindMap(allIssues);
     }
 }
 
@@ -502,77 +508,135 @@ function transformIssuesToMindmapData(issues) {
         return null;
     }
 
-    // Limit to first 10 issues for testing
-    const limitedIssues = issues.slice(0, 10);
+    // Analyze the actual parent-child relationships
+    const issueMap = new Map();
+    const rootIssues = [];
+    const childIssues = [];
 
-    // Transform to Mmp format (flat array with parent references)
-    const mindmapData = [];
-
-    // Find or create a root issue
-    let rootIssue = limitedIssues.find(issue => !issue.parent?.id);
-    if (!rootIssue) {
-        // If no root found, use the first issue as root
-        rootIssue = limitedIssues[0];
-    }
-
-    // Add root node
-    mindmapData.push({
-        id: 'mmp_node_0',
-        parent: '',
-        name: rootIssue.title || 'Root Issue',
-        coordinates: {
-            x: 400,
-            y: 300
-        },
-        image: {
-            src: '',
-            size: 70
-        },
-        colors: {
-            name: '#787878',
-            background: '#f0f6f5',
-            branch: ''
-        },
-        font: {
-            size: 20,
-            style: 'normal',
-            weight: 'normal'
-        },
-        locked: false,
-        k: Math.random() * 20 - 10
+    // First pass: categorize issues and build lookup map
+    issues.forEach(issue => {
+        issueMap.set(issue.id, issue);
+        if (issue.parent?.id) {
+            childIssues.push(issue);
+        } else {
+            rootIssues.push(issue);
+        }
     });
 
-    // Add child nodes
-    const childIssues = limitedIssues.filter(issue => issue.id !== rootIssue.id).slice(0, 4);
-    childIssues.forEach((issue, index) => {
+    console.log(`Found ${rootIssues.length} root issues and ${childIssues.length} child issues`);
+
+    // Build the hierarchy
+    const mindmapData = [];
+    let nodeCounter = 0;
+    const issueToNodeMap = new Map(); // Maps issue ID to node ID
+
+    // If we have no clear hierarchy, create a simple structure with first 15 issues
+    if (rootIssues.length === issues.length || rootIssues.length === 0) {
+        console.log('No clear hierarchy found, creating simple structure');
+        const limitedIssues = issues.slice(0, 15);
+
+        // Use first issue as root
+        const rootIssue = limitedIssues[0];
+        const rootNodeId = `mmp_node_${nodeCounter++}`;
+        issueToNodeMap.set(rootIssue.id, rootNodeId);
+
         mindmapData.push({
-            id: `mmp_node_${index + 1}`,
-            parent: 'mmp_node_0',
-            name: issue.title || 'Untitled Issue',
-            coordinates: {
-                x: 400 + (index % 2 === 0 ? -200 : 200),
-                y: 300 + (index * 60) - 90
-            },
-            image: {
-                src: '',
-                size: 60
-            },
+            id: rootNodeId,
+            parent: '',
+            name: rootIssue.title || 'Root Issue',
+            coordinates: { x: 400, y: 300 },
+            image: { src: '', size: 70 },
             colors: {
-                name: '#333333',
-                background: getStatusColor(issue.state?.name),
-                branch: '#577a96'
+                name: '#787878',
+                background: '#f0f6f5',
+                branch: ''
             },
-            font: {
-                size: 16,
-                style: 'normal',
-                weight: 'normal'
-            },
-            locked: true,
+            font: { size: 20, style: 'normal', weight: 'normal' },
             k: Math.random() * 20 - 10
         });
-    });
 
-    console.log('Created Mmp mindmap structure:', mindmapData);
+        // Add remaining issues as children
+        limitedIssues.slice(1, 8).forEach((issue, index) => {
+            const nodeId = `mmp_node_${nodeCounter++}`;
+            issueToNodeMap.set(issue.id, nodeId);
+
+            mindmapData.push({
+                id: nodeId,
+                parent: rootNodeId,
+                name: issue.title || 'Untitled Issue',
+                coordinates: {
+                    x: 400 + (index % 2 === 0 ? -200 : 200),
+                    y: 300 + (index * 60) - 90
+                },
+                image: { src: '', size: 60 },
+                colors: {
+                    name: '#787878',
+                    background: '#f9f9f9',
+                    branch: '#577a96'
+                },
+                font: { size: 16, style: 'normal', weight: 'normal' },
+                locked: true,
+                k: Math.random() * 20 - 10
+            });
+        });
+    } else {
+        // We have actual parent-child relationships, use them
+        console.log('Using actual parent-child relationships');
+
+        // Add root issues first (limit to 5 roots to keep it manageable)
+        const limitedRoots = rootIssues.slice(0, 5);
+        limitedRoots.forEach((rootIssue, rootIndex) => {
+            const rootNodeId = `mmp_node_${nodeCounter++}`;
+            issueToNodeMap.set(rootIssue.id, rootNodeId);
+
+            mindmapData.push({
+                id: rootNodeId,
+                parent: '',
+                name: rootIssue.title || 'Root Issue',
+                coordinates: {
+                    x: 400 + (rootIndex * 300) - 300, // Spread roots horizontally
+                    y: 200
+                },
+                image: { src: '', size: 70 },
+                colors: {
+                    name: '#787878',
+                    background: '#f0f6f5',
+                    branch: ''
+                },
+                font: { size: 18, style: 'normal', weight: 'normal' },
+                k: Math.random() * 20 - 10
+            });
+
+            // Add children of this root (limit to 5 children per root)
+            const children = childIssues.filter(child => child.parent?.id === rootIssue.id).slice(0, 5);
+            children.forEach((childIssue, childIndex) => {
+                const childNodeId = `mmp_node_${nodeCounter++}`;
+                issueToNodeMap.set(childIssue.id, childNodeId);
+
+                mindmapData.push({
+                    id: childNodeId,
+                    parent: rootNodeId,
+                    name: childIssue.title || 'Child Issue',
+                    coordinates: {
+                        x: 400 + (rootIndex * 300) - 300 + (childIndex * 100) - 100,
+                        y: 350 + (childIndex * 50)
+                    },
+                    image: { src: '', size: 60 },
+                    colors: {
+                        name: '#787878',
+                        background: '#f9f9f9',
+                        branch: '#577a96'
+                    },
+                    font: { size: 14, style: 'normal', weight: 'normal' },
+                    locked: true,
+                    k: Math.random() * 20 - 10
+                });
+            });
+        });
+    }
+
+    console.log('Created Mmp mindmap structure with', mindmapData.length, 'nodes');
+    console.log('Mindmap data:', mindmapData);
     return mindmapData;
 }
 
@@ -674,17 +738,26 @@ function renderMindmapInternal() {
 
             // Load the mindmap data
             console.log('Loading mindmap data...');
-            mindmapInstance.new(mindmapData);
+            console.log('Data being passed to mmp.new():', JSON.stringify(mindmapData, null, 2));
 
-            // Center the mindmap
-            console.log('Centering mindmap...');
-            setTimeout(() => {
-                if (mindmapInstance && mindmapInstance.center) {
-                    mindmapInstance.center();
-                }
-            }, 100);
+            try {
+                mindmapInstance.new(mindmapData);
+                console.log('Mindmap data loaded successfully');
 
-            console.log('Mindmap rendered successfully');
+                // Center the mindmap
+                console.log('Centering mindmap...');
+                setTimeout(() => {
+                    if (mindmapInstance && mindmapInstance.center) {
+                        mindmapInstance.center();
+                        console.log('Mindmap centered successfully');
+                    }
+                }, 100);
+
+                console.log('Mindmap rendered successfully');
+            } catch (error) {
+                console.error('Error loading mindmap data:', error);
+                container.innerHTML = '<p class="error">Error loading mindmap data: ' + error.message + '</p>';
+            }
         }, 100);
 
     } catch (error) {
