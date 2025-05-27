@@ -50,7 +50,6 @@
             <!-- Tab Navigation -->
             <div class="tab-navigation">
                 <button class="tab-button active" onclick="switchTab('table', event)">Table View</button>
-                <button class="tab-button" onclick="switchTab('mindmap', event)">Mind Map</button>
                 <button class="tab-button" onclick="switchTab('interactive-mindmap', event)">Interactive Mind Map</button>
             </div>
 
@@ -76,10 +75,7 @@
                 </div>
             </div>
 
-            <!-- Mind Map View -->
-            <div id="mindmap-view" class="tab-content">
-                <div id="mindmap-container"></div>
-            </div>
+
 
             <!-- Interactive Mind Map View -->
             <div id="interactive-mindmap-view" class="tab-content">
@@ -139,7 +135,6 @@
     </div>
 
     <script src="https://unpkg.com/d3@5/dist/d3.min.js"></script>
-    <script src="https://unpkg.com/mmp@0.2.20/build/mmp.min.js"></script>
     <script src="mindmap-utils.js"></script>
     <script src="mindmap-d3.js"></script>
     <script src="issue-dialog.js"></script>

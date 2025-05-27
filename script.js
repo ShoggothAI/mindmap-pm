@@ -240,12 +240,6 @@ function displayIssues(issues, totalCount = null) {
     }
 
     showResults();
-
-    // If mindmap tab is active and we have issues, render the mindmap
-    const mindmapTab = document.getElementById('mindmap-view');
-    if (mindmapTab && mindmapTab.classList.contains('active') && allIssues.length > 0) {
-        renderMindmap();
-    }
 }
 
 // Function to create a table row for an issue
@@ -478,7 +472,6 @@ function switchTab(tabName, event) {
         const buttons = document.querySelectorAll('.tab-button');
         buttons.forEach(button => {
             if ((tabName === 'table' && button.textContent.includes('Table')) ||
-                (tabName === 'mindmap' && button.textContent.includes('Mind Map') && !button.textContent.includes('Interactive')) ||
                 (tabName === 'interactive-mindmap' && button.textContent.includes('Interactive'))) {
                 button.classList.add('active');
             }
@@ -486,285 +479,62 @@ function switchTab(tabName, event) {
     }
     document.getElementById(tabName + '-view').classList.add('active');
 
-    // If switching to mindmap tab, render the mindmap
-    if (tabName === 'mindmap' && allIssues.length > 0) {
-        renderMindmap();
-    }
-
     // If switching to interactive mindmap tab, render the interactive mindmap
     if (tabName === 'interactive-mindmap') {
         initializeInteractiveMindMap(allIssues);
     }
 }
 
-// Global mindmap instance
-let mindmapInstance = null;
+// Initialize page and check for cached token
+async function initializePage() {
+    const tokenStatus = await checkCachedToken();
+    if (tokenStatus.hasToken) {
+        // Hide the token input section since we have a cached token
+        const tokenSection = document.getElementById('token-section');
+        tokenSection.style.display = 'none';
 
-// Function to transform Linear issues into mindmap format
-function transformIssuesToMindmapData(issues) {
-    console.log('Starting transformation with', issues.length, 'issues');
+        // Update header to indicate we're using cached token
+        const headerP = document.querySelector('header p');
+        headerP.textContent = 'Using cached Linear API token - fetching your issues...';
 
-    if (issues.length === 0) {
-        return null;
-    }
+        // Update the page title to reflect cached token usage
+        const headerH1 = document.querySelector('header h1');
+        headerH1.textContent = 'Linear Issues Viewer (Cached Token)';
 
-    // Analyze the actual parent-child relationships
-    const issueMap = new Map();
-    const rootIssues = [];
-    const childIssues = [];
+        // Hide any existing error and info messages
+        hideError();
+        hideInfo();
 
-    // First pass: categorize issues and build lookup map
-    issues.forEach(issue => {
-        issueMap.set(issue.id, issue);
-        if (issue.parent?.id) {
-            childIssues.push(issue);
-        } else {
-            rootIssues.push(issue);
-        }
-    });
-
-    console.log(`Found ${rootIssues.length} root issues and ${childIssues.length} child issues`);
-
-    // Build the hierarchy
-    const mindmapData = [];
-    let nodeCounter = 0;
-    const issueToNodeMap = new Map(); // Maps issue ID to node ID
-
-    // If we have no clear hierarchy, create a simple structure with first 15 issues
-    if (rootIssues.length === issues.length || rootIssues.length === 0) {
-        console.log('No clear hierarchy found, creating simple structure');
-        const limitedIssues = issues.slice(0, 15);
-
-        // Use first issue as root
-        const rootIssue = limitedIssues[0];
-        const rootNodeId = `mmp_node_${nodeCounter++}`;
-        issueToNodeMap.set(rootIssue.id, rootNodeId);
-
-        mindmapData.push({
-            id: rootNodeId,
-            parent: '',
-            name: rootIssue.title || 'Root Issue',
-            coordinates: { x: 400, y: 300 },
-            image: { src: '', size: 70 },
-            colors: {
-                name: '#787878',
-                background: '#f0f6f5',
-                branch: ''
-            },
-            font: { size: 20, style: 'normal', weight: 'normal' },
-            k: Math.random() * 20 - 10
-        });
-
-        // Add remaining issues as children
-        limitedIssues.slice(1, 8).forEach((issue, index) => {
-            const nodeId = `mmp_node_${nodeCounter++}`;
-            issueToNodeMap.set(issue.id, nodeId);
-
-            mindmapData.push({
-                id: nodeId,
-                parent: rootNodeId,
-                name: issue.title || 'Untitled Issue',
-                coordinates: {
-                    x: 400 + (index % 2 === 0 ? -200 : 200),
-                    y: 300 + (index * 60) - 90
-                },
-                image: { src: '', size: 60 },
-                colors: {
-                    name: '#787878',
-                    background: '#f9f9f9',
-                    branch: '#577a96'
-                },
-                font: { size: 16, style: 'normal', weight: 'normal' },
-                locked: true,
-                k: Math.random() * 20 - 10
-            });
-        });
+        // Auto-fetch issues since we have a cached token
+        fetchIssues();
     } else {
-        // We have actual parent-child relationships, use them
-        console.log('Using actual parent-child relationships');
-
-        // Add root issues first (limit to 5 roots to keep it manageable)
-        const limitedRoots = rootIssues.slice(0, 5);
-        limitedRoots.forEach((rootIssue, rootIndex) => {
-            const rootNodeId = `mmp_node_${nodeCounter++}`;
-            issueToNodeMap.set(rootIssue.id, rootNodeId);
-
-            mindmapData.push({
-                id: rootNodeId,
-                parent: '',
-                name: rootIssue.title || 'Root Issue',
-                coordinates: {
-                    x: 400 + (rootIndex * 300) - 300, // Spread roots horizontally
-                    y: 200
-                },
-                image: { src: '', size: 70 },
-                colors: {
-                    name: '#787878',
-                    background: '#f0f6f5',
-                    branch: ''
-                },
-                font: { size: 18, style: 'normal', weight: 'normal' },
-                k: Math.random() * 20 - 10
-            });
-
-            // Add children of this root (limit to 5 children per root)
-            const children = childIssues.filter(child => child.parent?.id === rootIssue.id).slice(0, 5);
-            children.forEach((childIssue, childIndex) => {
-                const childNodeId = `mmp_node_${nodeCounter++}`;
-                issueToNodeMap.set(childIssue.id, childNodeId);
-
-                mindmapData.push({
-                    id: childNodeId,
-                    parent: rootNodeId,
-                    name: childIssue.title || 'Child Issue',
-                    coordinates: {
-                        x: 400 + (rootIndex * 300) - 300 + (childIndex * 100) - 100,
-                        y: 350 + (childIndex * 50)
-                    },
-                    image: { src: '', size: 60 },
-                    colors: {
-                        name: '#787878',
-                        background: '#f9f9f9',
-                        branch: '#577a96'
-                    },
-                    font: { size: 14, style: 'normal', weight: 'normal' },
-                    locked: true,
-                    k: Math.random() * 20 - 10
-                });
-            });
-        });
-    }
-
-    console.log('Created Mmp mindmap structure with', mindmapData.length, 'nodes');
-    console.log('Mindmap data:', mindmapData);
-    return mindmapData;
-}
-
-// Helper function to get color based on status
-function getStatusColor(status) {
-    if (!status) return '#f9f9f9';
-
-    const statusLower = status.toLowerCase();
-    if (statusLower.includes('done') || statusLower.includes('completed')) {
-        return '#d4edda'; // Light green
-    } else if (statusLower.includes('progress') || statusLower.includes('active')) {
-        return '#fff3cd'; // Light yellow
-    } else if (statusLower.includes('todo') || statusLower.includes('backlog')) {
-        return '#f8d7da'; // Light red
-    } else {
-        return '#e2e3e5'; // Light gray
+        // Show token input section since no cached token is available
+        const headerP = document.querySelector('header p');
+        headerP.textContent = 'Enter your Linear API token to view your issues';
     }
 }
 
-// Function to render the mindmap
-function renderMindmap() {
-    const container = document.getElementById('mindmap-container');
+// Function to show manual token input (fallback option)
+function showManualTokenInput() {
+    const tokenSection = document.getElementById('token-section');
+    const headerP = document.querySelector('header p');
+    const headerH1 = document.querySelector('header h1');
 
-    // Clear existing mindmap
-    container.innerHTML = '';
+    // Show the token section
+    tokenSection.style.display = 'block';
 
-    if (allIssues.length === 0) {
-        container.innerHTML = '<p class="no-data">No issues to display in mindmap</p>';
-        return;
-    }
+    // Reset header text
+    headerH1.textContent = 'Linear Issues Viewer';
+    headerP.textContent = 'Enter your Linear API token to view your issues';
 
-    // Add a small delay to ensure libraries are loaded
-    setTimeout(() => {
-        renderMindmapInternal();
-    }, 100);
-}
+    // Hide info message and show token input
+    hideInfo();
+    hideResults();
 
-// Internal function to actually render the mindmap
-function renderMindmapInternal() {
-    const container = document.getElementById('mindmap-container');
-
-    try {
-        // Check if required libraries are loaded
-        console.log('Checking libraries...');
-        console.log('D3 available:', typeof d3 !== 'undefined');
-        console.log('Mmp available:', typeof mmp !== 'undefined');
-
-        if (typeof d3 === 'undefined') {
-            console.error('D3 library is not loaded');
-            container.innerHTML = '<p class="error">D3 library not loaded. Please refresh the page.</p>';
-            return;
-        }
-
-        if (typeof mmp === 'undefined') {
-            console.error('Mmp library is not loaded');
-            container.innerHTML = '<p class="error">Mindmap library not loaded. Please refresh the page.</p>';
-            return;
-        }
-
-        console.log('Transforming', allIssues.length, 'issues to mindmap data...');
-
-        // Transform issues data for mindmap
-        const mindmapData = transformIssuesToMindmapData(allIssues);
-
-        if (!mindmapData) {
-            container.innerHTML = '<p class="no-data">Unable to create mindmap structure</p>';
-            return;
-        }
-
-        console.log('Mindmap data structure:', mindmapData);
-
-        // Ensure container exists and has proper dimensions
-        if (!container) {
-            console.error('Mindmap container not found');
-            return;
-        }
-
-        console.log('Container found:', container);
-        console.log('Container dimensions:', container.offsetWidth, 'x', container.offsetHeight);
-
-        // Clear any existing content
-        container.innerHTML = '';
-
-        // Ensure container has proper dimensions and is visible
-        container.style.width = '100%';
-        container.style.height = '600px';
-        container.style.position = 'relative';
-        container.style.display = 'block';
-
-        // Wait a moment for the container to be properly sized
-        setTimeout(() => {
-            console.log('Container dimensions after styling:', container.offsetWidth, 'x', container.offsetHeight);
-
-            // Create mindmap instance
-            console.log('Creating mindmap instance...');
-            mindmapInstance = mmp.create('mindmap-container');
-
-            console.log('Mindmap instance created:', mindmapInstance);
-
-            // Load the mindmap data
-            console.log('Loading mindmap data...');
-            console.log('Data being passed to mmp.new():', JSON.stringify(mindmapData, null, 2));
-
-            try {
-                mindmapInstance.new(mindmapData);
-                console.log('Mindmap data loaded successfully');
-
-                // Center the mindmap
-                console.log('Centering mindmap...');
-                setTimeout(() => {
-                    if (mindmapInstance && mindmapInstance.center) {
-                        mindmapInstance.center();
-                        console.log('Mindmap centered successfully');
-                    }
-                }, 100);
-
-                console.log('Mindmap rendered successfully');
-            } catch (error) {
-                console.error('Error loading mindmap data:', error);
-                container.innerHTML = '<p class="error">Error loading mindmap data: ' + error.message + '</p>';
-            }
-        }, 100);
-
-    } catch (error) {
-        console.error('Error rendering mindmap:', error);
-        container.innerHTML = '<p class="error">Error rendering mindmap. Please try again.</p>';
-    }
+    // Focus on token input
+    document.getElementById('token-input').focus();
 }
 
 // Initialize page when DOM is loaded
 document.addEventListener('DOMContentLoaded', initializePage);
+
