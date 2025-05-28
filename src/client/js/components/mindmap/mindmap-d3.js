@@ -83,8 +83,8 @@ function updateMindMapVisualization() {
     const zoom = d3.zoom()
         .scaleExtent([0.1, 4])
         .filter(function() {
-            // Only allow zoom on wheel events or when no node is being dragged
-            return d3.event.type === 'wheel' || d3.event.type === 'dblclick';
+            // Only allow zoom on wheel events, exclude double-click to prevent zoom on node double-click
+            return d3.event.type === 'wheel';
         })
         .on("zoom", function() {
             g.attr("transform", d3.event.transform);
