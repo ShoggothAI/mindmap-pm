@@ -859,20 +859,26 @@ function openNewIssueDialog(parentId) {
         console.log(`Pre-populated project info - TeamId: ${tempNode.teamId}, Team: ${tempNode.teamName}, Project: ${tempNode.projectName}, ProjectId: ${tempNode.projectId}`);
     }
 
-    openIssueDialog(tempNode, function(updates) {
+    openIssueDialog(tempNode, async function(updates) {
         // Only create the actual node when Save is clicked
         if (parent) {
-            const newChild = addChildNode(parent, updates.name || 'New Issue');
-            // Apply all the updates to the new node
-            updateNode(newChild, updates);
-            setSelectedNode(newChild.id);
-            updateMindMapVisualization();
+            try {
+                // Use the Linear-integrated function to create the issue
+                const newChild = await addChildNodeWithLinearSync(parent, updates);
+                setSelectedNode(newChild.id);
+                updateMindMapVisualization();
 
-            // Position the new node using the same logic as initial layout
-            // Use setTimeout to ensure the node is rendered before positioning
-            setTimeout(() => {
-                positionNewNode(newChild.id);
-            }, 50);
+                // Position the new node using the same logic as initial layout
+                // Use setTimeout to ensure the node is rendered before positioning
+                setTimeout(() => {
+                    positionNewNode(newChild.id);
+                }, 50);
+
+                console.log('Successfully created issue in Linear and mindmap');
+            } catch (error) {
+                console.error('Failed to create issue:', error);
+                alert(`Failed to create issue: ${error.message}`);
+            }
         }
     });
 }
@@ -948,27 +954,29 @@ function createChildNodeForParent(parentId) {
     return null;
 }
 
-// Delete a node
-function deleteNodeById(nodeId) {
+// Delete a node with Linear integration
+async function deleteNodeById(nodeId) {
     if (nodeId === "root") return; // Cannot delete root node
 
-    function deleteFromParent(node) {
-        if (node.children) {
-            const childIndex = node.children.findIndex(child => child.id === nodeId);
-            if (childIndex !== -1) {
-                node.children.splice(childIndex, 1);
-                return true;
-            }
-            for (const child of node.children) {
-                if (deleteFromParent(child)) return true;
-            }
-        }
-        return false;
+    // Find the node to delete
+    const nodeToDelete = findNodeById(mindMapData, nodeId);
+    if (!nodeToDelete) {
+        console.warn('Node not found for deletion:', nodeId);
+        return;
     }
 
-    if (deleteFromParent(mindMapData)) {
-        setSelectedNode(null);
-        updateMindMapVisualization();
+    try {
+        // Use the Linear-integrated delete function
+        const deleted = await deleteNodeWithLinearSync(nodeToDelete, mindMapData);
+
+        if (deleted) {
+            setSelectedNode(null);
+            updateMindMapVisualization();
+            console.log('Successfully deleted node from both Linear and mindmap');
+        }
+    } catch (error) {
+        console.error('Failed to delete node:', error);
+        // Error handling is already done in deleteNodeWithLinearSync
     }
 }
 

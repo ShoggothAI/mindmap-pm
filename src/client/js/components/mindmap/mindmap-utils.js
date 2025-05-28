@@ -102,7 +102,7 @@ function createMindMapData() {
     );
 }
 
-// Add a child node to a parent
+// Add a child node to a parent (local only - for backward compatibility)
 function addChildNode(parentNode, childName) {
     if (!parentNode.children) {
         parentNode.children = [];
@@ -127,6 +127,93 @@ function addChildNode(parentNode, childName) {
     return newChild;
 }
 
+// Add a child node and create corresponding Linear issue
+async function addChildNodeWithLinearSync(parentNode, issueData) {
+    // Validate that we have the required team information
+    if (!parentNode.teamId && parentNode.nodeType !== 'team' && parentNode.nodeType !== 'project') {
+        throw new Error('Cannot create issue: No team information available');
+    }
+
+    // Get team ID from parent or parent's team info
+    let teamId = parentNode.teamId;
+    if (parentNode.nodeType === 'team') {
+        teamId = parentNode.teamId || parentNode.id.replace('team-', '');
+    }
+
+    if (!teamId) {
+        throw new Error('Cannot create issue: No team ID available');
+    }
+
+    // Prepare Linear issue data
+    const linearIssueData = {
+        teamId: teamId,
+        title: issueData.name || issueData.title || 'New Issue',
+        description: issueData.description || '',
+        parentId: null, // Will be set if parent is an issue
+        projectId: parentNode.projectId || null,
+        stateId: getLinearStateIdFromStatus(issueData.status || 'backlog', teamId)
+    };
+
+    // Set parent ID if the parent is an issue (not team or project)
+    if (parentNode.nodeType === 'issue') {
+        linearIssueData.parentId = parentNode.id;
+    }
+
+    console.log('Creating Linear issue with data:', linearIssueData);
+
+    try {
+        // Create the issue in Linear first
+        const createdIssue = await createLinearIssue(linearIssueData);
+
+        // Create the mindmap node with the Linear issue ID
+        if (!parentNode.children) {
+            parentNode.children = [];
+        }
+
+        const newChild = new MindMapNode(
+            createdIssue.id, // Use the Linear issue ID
+            createdIssue.title,
+            createdIssue.description || '',
+            parentNode.id,
+            convertLinearStateToStatus(createdIssue.state),
+            []
+        );
+
+        // Set node type and project information from the created issue
+        newChild.nodeType = 'issue';
+        newChild.teamId = createdIssue.team?.id || teamId;
+        newChild.teamName = createdIssue.team?.name || parentNode.teamName;
+        newChild.projectId = createdIssue.project?.id || parentNode.projectId;
+        newChild.projectName = createdIssue.project?.name || parentNode.projectName;
+
+        parentNode.children.push(newChild);
+
+        console.log('Successfully created mindmap node with Linear issue:', newChild);
+        return newChild;
+
+    } catch (error) {
+        console.error('Failed to create Linear issue:', error);
+        // Fall back to creating a local-only node
+        console.log('Falling back to local-only node creation');
+        return addChildNode(parentNode, linearIssueData.title);
+    }
+}
+
+// Helper function to convert Linear state to mindmap status
+function convertLinearStateToStatus(linearState) {
+    if (!linearState) return 'backlog';
+    const stateName = linearState.name.toLowerCase();
+    const stateType = linearState.type.toLowerCase();
+
+    if (stateType === 'completed' || stateName.includes('done') || stateName.includes('completed')) {
+        return 'done';
+    } else if (stateType === 'started' || stateName.includes('progress') || stateName.includes('active')) {
+        return 'in-progress';
+    } else {
+        return 'backlog';
+    }
+}
+
 // Update node name
 function updateNodeName(node, newName) {
     node.name = newName;
@@ -137,6 +224,75 @@ function updateNode(node, updates) {
     if (updates.name !== undefined) node.name = updates.name;
     if (updates.description !== undefined) node.description = updates.description;
     if (updates.status !== undefined) node.status = updates.status;
+}
+
+// Delete a node with Linear sync
+async function deleteNodeWithLinearSync(nodeToDelete, rootNode) {
+    // Check if this is a team or project node
+    if (nodeToDelete.nodeType === 'team' || nodeToDelete.nodeType === 'project') {
+        // Show warning popup and do nothing
+        const nodeTypeName = nodeToDelete.nodeType === 'team' ? 'Team' : 'Project';
+        alert(`Warning: Cannot delete ${nodeTypeName} nodes. Only issue nodes can be deleted.`);
+        return false;
+    }
+
+    // Only delete issue nodes
+    if (nodeToDelete.nodeType !== 'issue') {
+        console.log('Skipping deletion of non-issue node:', nodeToDelete.nodeType);
+        return false;
+    }
+
+    try {
+        // Delete from Linear first
+        console.log('Deleting Linear issue:', nodeToDelete.id);
+        await deleteLinearIssue(nodeToDelete.id);
+
+        // If Linear deletion succeeds, remove from mindmap
+        const deleted = deleteNodeFromTree(nodeToDelete.id, rootNode);
+
+        if (deleted) {
+            console.log('Successfully deleted node from both Linear and mindmap');
+        } else {
+            console.warn('Node was deleted from Linear but not found in mindmap tree');
+        }
+
+        return deleted;
+
+    } catch (error) {
+        console.error('Failed to delete Linear issue:', error);
+
+        // Ask user if they want to delete locally anyway
+        const deleteLocally = confirm(
+            `Failed to delete issue from Linear: ${error.message}\n\n` +
+            'Do you want to delete it from the mindmap anyway? ' +
+            '(This will create a mismatch between Linear and the mindmap)'
+        );
+
+        if (deleteLocally) {
+            return deleteNodeFromTree(nodeToDelete.id, rootNode);
+        }
+
+        return false;
+    }
+}
+
+// Helper function to delete a node from the tree structure
+function deleteNodeFromTree(nodeId, rootNode) {
+    function deleteFromParent(node) {
+        if (node.children) {
+            const childIndex = node.children.findIndex(child => child.id === nodeId);
+            if (childIndex !== -1) {
+                node.children.splice(childIndex, 1);
+                return true;
+            }
+            for (const child of node.children) {
+                if (deleteFromParent(child)) return true;
+            }
+        }
+        return false;
+    }
+
+    return deleteFromParent(rootNode);
 }
 
 // Find a node by ID in the tree
@@ -523,6 +679,10 @@ function convertLinearIssuesToMindMap(filteredIssues, allIssues = null) {
 window.MindMapNode = MindMapNode;
 window.createMindMapData = createMindMapData;
 window.addChildNode = addChildNode;
+window.addChildNodeWithLinearSync = addChildNodeWithLinearSync;
+window.deleteNodeWithLinearSync = deleteNodeWithLinearSync;
+window.deleteNodeFromTree = deleteNodeFromTree;
+window.convertLinearStateToStatus = convertLinearStateToStatus;
 window.updateNodeName = updateNodeName;
 window.updateNode = updateNode;
 window.findNodeById = findNodeById;
