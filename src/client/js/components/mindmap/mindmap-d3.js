@@ -5,6 +5,8 @@ let mindMapData = null;
 let selectedNodeId = null;
 let contextMenuNodeId = null;
 let svgElement = null;
+let currentZoomTransform = null;
+let isInitialRender = true;
 
 // Initialize the interactive mind map
 function initializeInteractiveMindMap(issues = null) {
@@ -87,6 +89,7 @@ function updateMindMapVisualization() {
             return d3.event.type === 'wheel';
         })
         .on("zoom", function() {
+            currentZoomTransform = d3.event.transform;
             g.attr("transform", d3.event.transform);
         });
 
@@ -702,12 +705,20 @@ function updateMindMapVisualization() {
         hideContextMenu();
     });
 
-    // Center the view initially
+    // Center the view initially or restore previous zoom
     const bounds = g.node().getBBox();
     if (bounds) {
-        const centerX = width / 2 - bounds.x - bounds.width / 2;
-        const centerY = height / 2 - bounds.y - bounds.height / 2;
-        svgElement.call(zoom.transform, d3.zoomIdentity.translate(centerX, centerY));
+        if (isInitialRender) {
+            // Only center on initial render
+            const centerX = width / 2 - bounds.x - bounds.width / 2;
+            const centerY = height / 2 - bounds.y - bounds.height / 2;
+            currentZoomTransform = d3.zoomIdentity.translate(centerX, centerY);
+            svgElement.call(zoom.transform, currentZoomTransform);
+            isInitialRender = false;
+        } else if (currentZoomTransform) {
+            // Restore previous zoom state
+            svgElement.call(zoom.transform, currentZoomTransform);
+        }
     }
 }
 
