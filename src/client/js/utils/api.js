@@ -33,6 +33,10 @@ const ISSUES_QUERY = `
           name
           key
         }
+        project {
+          name
+          id
+        }
         creator {
           name
         }

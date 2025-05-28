@@ -294,34 +294,24 @@ function convertLinearIssuesToMindMap(filteredIssues, allIssues = null) {
         issueMap.set(issue.id, issue);
     });
 
-    // Group issues by team/project
-    const projectGroups = new Map();
+    // Group issues by team
+    const teamGroups = new Map();
     const issuesWithoutTeam = [];
 
     issuesToProcess.forEach(issue => {
         const teamName = issue.team?.name || issue.team?.key;
         if (teamName) {
-            if (!projectGroups.has(teamName)) {
-                projectGroups.set(teamName, []);
+            if (!teamGroups.has(teamName)) {
+                teamGroups.set(teamName, []);
             }
-            projectGroups.get(teamName).push(issue);
+            teamGroups.get(teamName).push(issue);
         } else {
             issuesWithoutTeam.push(issue);
         }
     });
 
-    console.log(`Found ${projectGroups.size} teams/projects:`, Array.from(projectGroups.keys()));
+    console.log(`Found ${teamGroups.size} teams:`, Array.from(teamGroups.keys()));
     console.log(`Found ${issuesWithoutTeam.length} issues without team assignment`);
-
-    // Create the root node
-    const root = new MindMapNode(
-        "root",
-        "Linear Workspace",
-        "Projects and issues from Linear workspace",
-        null,
-        "in-progress",
-        []
-    );
 
     // Helper function to add children recursively
     function addChildren(parentNode, parentIssueId, allIssues) {
@@ -334,52 +324,90 @@ function convertLinearIssuesToMindMap(filteredIssues, allIssues = null) {
         });
     }
 
-    // Process each project/team
-    projectGroups.forEach((teamIssues, teamName) => {
-        // Create project node
-        const projectNode = new MindMapNode(
-            `project-${teamName}`,
+    // Create team nodes as root nodes (no workspace node)
+    const teamNodes = [];
+
+    // Process each team
+    teamGroups.forEach((teamIssues, teamName) => {
+        // Create team node (root level)
+        const teamNode = new MindMapNode(
+            `team-${teamName}`,
             teamName,
-            `Issues from ${teamName} team`,
-            "root",
+            `Team: ${teamName}`,
+            null, // No parent - this is a root node
             "in-progress",
             []
         );
 
-        // Find issues without parent (root issues for this team)
-        const rootIssuesForTeam = teamIssues.filter(issue => !issue.parent?.id);
+        // Group issues within this team by project
+        const projectGroups = new Map();
+        const issuesWithoutProject = [];
 
-        console.log(`Team ${teamName}: ${teamIssues.length} total issues, ${rootIssuesForTeam.length} root issues`);
-        console.log(`Root issues for ${teamName}:`, rootIssuesForTeam.map(issue => ({
-            id: issue.id,
-            title: issue.title,
-            identifier: issue.identifier
-        })));
-        console.log(`Child issues for ${teamName}:`, teamIssues.filter(issue => issue.parent?.id).map(issue => ({
-            id: issue.id,
-            title: issue.title,
-            identifier: issue.identifier,
-            parent: issue.parent.id
-        })));
-
-        // Add root issues as children of the project node
-        rootIssuesForTeam.forEach(rootIssue => {
-            const issueNode = convertIssue(rootIssue, projectNode.id);
-            projectNode.children.push(issueNode);
-            // Add children recursively
-            addChildren(issueNode, rootIssue.id, teamIssues);
+        teamIssues.forEach(issue => {
+            const projectName = issue.project?.name;
+            if (projectName) {
+                if (!projectGroups.has(projectName)) {
+                    projectGroups.set(projectName, []);
+                }
+                projectGroups.get(projectName).push(issue);
+            } else {
+                issuesWithoutProject.push(issue);
+            }
         });
 
-        root.children.push(projectNode);
+        console.log(`Team ${teamName}: ${projectGroups.size} projects, ${issuesWithoutProject.length} issues without project`);
+
+        // Add project nodes as children of team
+        projectGroups.forEach((projectIssues, projectName) => {
+            const projectNode = new MindMapNode(
+                `project-${teamName}-${projectName}`,
+                projectName,
+                `Project: ${projectName}`,
+                teamNode.id,
+                "in-progress",
+                []
+            );
+
+            // Find root issues for this project (issues without parent)
+            const rootIssuesForProject = projectIssues.filter(issue => !issue.parent?.id);
+
+            console.log(`Project ${projectName}: ${projectIssues.length} total issues, ${rootIssuesForProject.length} root issues`);
+
+            // Add root issues as children of the project node
+            rootIssuesForProject.forEach(rootIssue => {
+                const issueNode = convertIssue(rootIssue, projectNode.id);
+                projectNode.children.push(issueNode);
+                // Add children recursively
+                addChildren(issueNode, rootIssue.id, projectIssues);
+            });
+
+            teamNode.children.push(projectNode);
+        });
+
+        // Add issues without project directly to team node
+        if (issuesWithoutProject.length > 0) {
+            const rootIssuesWithoutProject = issuesWithoutProject.filter(issue => !issue.parent?.id);
+
+            console.log(`Team ${teamName} issues without project: ${issuesWithoutProject.length} total, ${rootIssuesWithoutProject.length} root issues`);
+
+            rootIssuesWithoutProject.forEach(rootIssue => {
+                const issueNode = convertIssue(rootIssue, teamNode.id);
+                teamNode.children.push(issueNode);
+                // Add children recursively
+                addChildren(issueNode, rootIssue.id, issuesWithoutProject);
+            });
+        }
+
+        teamNodes.push(teamNode);
     });
 
     // Handle issues without team assignment
     if (issuesWithoutTeam.length > 0) {
-        const unassignedNode = new MindMapNode(
-            "project-unassigned",
-            "Unassigned Issues",
+        const unassignedTeamNode = new MindMapNode(
+            "team-unassigned",
+            "Unassigned Team",
             "Issues without team assignment",
-            "root",
+            null, // Root node
             "backlog",
             []
         );
@@ -387,21 +415,40 @@ function convertLinearIssuesToMindMap(filteredIssues, allIssues = null) {
         // Find root issues (without parent) among unassigned issues
         const rootUnassignedIssues = issuesWithoutTeam.filter(issue => !issue.parent?.id);
 
-        console.log(`Unassigned: ${issuesWithoutTeam.length} total issues, ${rootUnassignedIssues.length} root issues`);
+        console.log(`Unassigned team: ${issuesWithoutTeam.length} total issues, ${rootUnassignedIssues.length} root issues`);
 
-        // Add root issues as children of the unassigned node
+        // Add root issues as children of the unassigned team node
         rootUnassignedIssues.forEach(rootIssue => {
-            const issueNode = convertIssue(rootIssue, unassignedNode.id);
-            unassignedNode.children.push(issueNode);
+            const issueNode = convertIssue(rootIssue, unassignedTeamNode.id);
+            unassignedTeamNode.children.push(issueNode);
             // Add children recursively
             addChildren(issueNode, rootIssue.id, issuesWithoutTeam);
         });
 
-        root.children.push(unassignedNode);
+        teamNodes.push(unassignedTeamNode);
     }
 
-    console.log(`Created mind map with ${root.children.length} project nodes`);
-    return root;
+    console.log(`Created mind map with ${teamNodes.length} team nodes`);
+
+    // Return the first team node if there's only one, otherwise create a virtual root
+    if (teamNodes.length === 1) {
+        return teamNodes[0];
+    } else {
+        // Create a virtual root to hold multiple teams
+        const virtualRoot = new MindMapNode(
+            "virtual-root",
+            "Teams",
+            "Multiple teams",
+            null,
+            "in-progress",
+            teamNodes
+        );
+        // Update parent IDs for team nodes
+        teamNodes.forEach(teamNode => {
+            teamNode.parentId = virtualRoot.id;
+        });
+        return virtualRoot;
+    }
 }
 
 // Export functions for global use
