@@ -113,6 +113,8 @@ function addChildNode(parentNode, childName) {
         []
     );
 
+    // Note: Positioning will be handled by the D3 rendering layer using the same logic as initial layout
+
     parentNode.children.push(newChild);
     return newChild;
 }

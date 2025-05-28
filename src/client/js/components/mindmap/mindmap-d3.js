@@ -405,6 +405,21 @@ function updateMindMapVisualization() {
     // Now that nodes are created with actual dimensions, recalculate ALL positions
     const CONSTANT_SPACING = 200; // Distance from parent +/- control to child circle
 
+    // Shared function to calculate proper child position relative to parent
+    function calculateChildPosition(parentNode, childNode, parentWidth, childWidth) {
+        // Parent +/- control position (right edge of parent + button offset)
+        const parentControlX = parentNode.y + (parentWidth / 2) + 5 + 12;
+
+        // Child CENTER position = parent control + constant spacing + half child width
+        // This ensures the child's connection circle (at left edge) is exactly CONSTANT_SPACING from parent control
+        const newChildY = parentControlX + CONSTANT_SPACING + (childWidth / 2);
+
+        return {
+            x: childNode.x, // Keep existing x (vertical) position
+            y: newChildY    // Calculate new y (horizontal) position
+        };
+    }
+
     function recalculateAllPositions() {
         // Process all nodes level by level to ensure proper cascading
         const nodesByLevel = {};
@@ -432,15 +447,9 @@ function updateMindMapVisualization() {
                 const childRect = childNodeGroup.select("rect");
                 const childWidth = +childRect.attr("data-width");
 
-                // Parent +/- control position (right edge of parent + button offset)
-                const parentControlX = parent.y + (parentWidth / 2) + 5 + 12;
-
-                // Child CENTER position = parent control + constant spacing + half child width
-                // This ensures the child's connection circle (at left edge) is exactly CONSTANT_SPACING from parent control
-                const newChildY = parentControlX + CONSTANT_SPACING + (childWidth / 2);
-
-                // Update node position
-                node.y = newChildY;
+                // Use shared positioning logic
+                const newPosition = calculateChildPosition(parent, node, parentWidth, childWidth);
+                node.y = newPosition.y;
 
                 // Update the node's visual transform
                 childNodeGroup.attr("transform", `translate(${node.y},${node.x})`);
@@ -765,7 +774,7 @@ function setSelectedNode(nodeId) {
     updateMindMapVisualization();
 }
 
-// Open node dialog for editing
+// Open node dialog for editing existing node
 function openNodeDialog(nodeId) {
     const node = findNodeById(mindMapData, nodeId);
     if (node) {
@@ -774,6 +783,83 @@ function openNodeDialog(nodeId) {
             updateMindMapVisualization();
         });
     }
+}
+
+// Position a newly created node using the same logic as initial layout
+function positionNewNode(newNodeId) {
+    // Find the new node in the current visualization
+    const newNodeGroup = d3.selectAll('.node').filter(d => d.data.id === newNodeId);
+    if (newNodeGroup.empty()) return;
+
+    const newNodeData = newNodeGroup.datum();
+    const parent = newNodeData.parent;
+    if (!parent) return; // Root node doesn't need repositioning
+
+    // Get parent node dimensions
+    const parentNodeGroup = d3.selectAll('.node').filter(d => d.data.id === parent.data.id);
+    const parentRect = parentNodeGroup.select("rect");
+    const parentWidth = +parentRect.attr("data-width");
+
+    // Get new node dimensions
+    const newNodeRect = newNodeGroup.select("rect");
+    const newNodeWidth = +newNodeRect.attr("data-width");
+
+    // Use the same positioning logic as initial layout
+    const CONSTANT_SPACING = 200;
+    const newPosition = {
+        x: newNodeData.x, // Keep vertical position from D3 layout
+        y: parent.y + (parentWidth / 2) + 5 + 12 + CONSTANT_SPACING + (newNodeWidth / 2)
+    };
+
+    // Update the node's position
+    newNodeData.y = newPosition.y;
+
+    // Update visual transform
+    newNodeGroup.attr("transform", `translate(${newPosition.y},${newPosition.x})`);
+
+    // Update connection circle position
+    const newCircleX = -(newNodeWidth / 2) - 8;
+    newNodeGroup.select(".connection-circle")
+        .attr("cx", newCircleX)
+        .attr("cy", 0);
+
+    // Store the position as relative to parent
+    const originalNode = findNodeById(mindMapData, newNodeId);
+    if (originalNode) {
+        storeCurrentPositionAsRelative(originalNode, newPosition.x, newPosition.y, parent.x, parent.y);
+    }
+
+    // Update any links that connect to this node
+    updateMindMapVisualization();
+}
+
+// Open dialog for creating a new issue
+function openNewIssueDialog(parentId) {
+    // Create a temporary node object for the dialog (not added to the tree yet)
+    const tempNode = {
+        id: 'temp-' + Date.now(),
+        name: '',
+        description: '',
+        status: 'backlog'
+    };
+
+    openIssueDialog(tempNode, function(updates) {
+        // Only create the actual node when Save is clicked
+        const parent = findNodeById(mindMapData, parentId);
+        if (parent) {
+            const newChild = addChildNode(parent, updates.name || 'New Issue');
+            // Apply all the updates to the new node
+            updateNode(newChild, updates);
+            setSelectedNode(newChild.id);
+            updateMindMapVisualization();
+
+            // Position the new node using the same logic as initial layout
+            // Use setTimeout to ensure the node is rendered before positioning
+            setTimeout(() => {
+                positionNewNode(newChild.id);
+            }, 50);
+        }
+    });
 }
 
 // Reparent a node
@@ -872,10 +958,7 @@ function hideContextMenu() {
 // Context menu actions
 function createChildNode() {
     if (contextMenuNodeId) {
-        const newNodeId = createChildNodeForParent(contextMenuNodeId);
-        if (newNodeId) {
-            openNodeDialog(newNodeId);
-        }
+        openNewIssueDialog(contextMenuNodeId);
     }
     hideContextMenu();
 }
@@ -905,17 +988,9 @@ function setupKeyboardHandlers() {
 
         if (event.key === 'Tab') {
             event.preventDefault();
-            if (selectedNodeId) {
-                const newNodeId = createChildNodeForParent(selectedNodeId);
-                if (newNodeId) {
-                    openNodeDialog(newNodeId);
-                }
-            } else {
-                const newNodeId = createChildNodeForParent("root");
-                if (newNodeId) {
-                    openNodeDialog(newNodeId);
-                }
-            }
+            // Open dialog for creating a new issue (don't create the node yet)
+            const parentId = selectedNodeId || "root";
+            openNewIssueDialog(parentId);
         }
 
         if (event.key === 'Delete' && selectedNodeId) {
