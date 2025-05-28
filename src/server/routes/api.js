@@ -88,6 +88,7 @@ router.get('/test-mindmap', async (req, res) => {
                                 title
                                 description
                                 team {
+                                    id
                                     name
                                     key
                                 }

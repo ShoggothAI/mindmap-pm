@@ -850,12 +850,13 @@ function openNewIssueDialog(parentId) {
     // Pre-populate project information based on parent
     if (parent && typeof getProjectInfoFromParent === 'function') {
         const projectInfo = getProjectInfoFromParent(parent);
+        tempNode.teamId = projectInfo.teamId;
         tempNode.teamName = projectInfo.teamName;
         tempNode.projectName = projectInfo.projectName;
         tempNode.projectId = projectInfo.projectId;
 
         console.log(`Creating new issue under parent: ${parent.name} (${parent.nodeType})`);
-        console.log(`Pre-populated project info - Team: ${tempNode.teamName}, Project: ${tempNode.projectName}, ProjectId: ${tempNode.projectId}`);
+        console.log(`Pre-populated project info - TeamId: ${tempNode.teamId}, Team: ${tempNode.teamName}, Project: ${tempNode.projectName}, ProjectId: ${tempNode.projectId}`);
     }
 
     openIssueDialog(tempNode, function(updates) {

@@ -30,6 +30,7 @@ const ISSUES_QUERY = `
           email
         }
         team {
+          id
           name
           key
         }

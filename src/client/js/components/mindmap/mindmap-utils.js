@@ -177,26 +177,27 @@ function clearNodeCustomPosition(node) {
 // Get project information from a parent node
 function getProjectInfoFromParent(parentNode) {
     if (!parentNode) {
-        return { teamName: null, projectName: null, projectId: null };
+        return { teamId: null, teamName: null, projectName: null, projectId: null };
     }
 
     if (parentNode.nodeType === 'team') {
         // Parent is a team node - no project
-        return { teamName: parentNode.teamName, projectName: null, projectId: null };
+        return { teamId: parentNode.teamId, teamName: parentNode.teamName, projectName: null, projectId: null };
     } else if (parentNode.nodeType === 'project') {
         // Parent is a project node - inherit team and project
-        return { teamName: parentNode.teamName, projectName: parentNode.projectName, projectId: parentNode.projectId };
+        return { teamId: parentNode.teamId, teamName: parentNode.teamName, projectName: parentNode.projectName, projectId: parentNode.projectId };
     } else if (parentNode.nodeType === 'issue') {
         // Parent is an issue - inherit its project info
-        return { teamName: parentNode.teamName, projectName: parentNode.projectName, projectId: parentNode.projectId };
+        return { teamId: parentNode.teamId, teamName: parentNode.teamName, projectName: parentNode.projectName, projectId: parentNode.projectId };
     }
 
-    return { teamName: null, projectName: null, projectId: null };
+    return { teamId: null, teamName: null, projectName: null, projectId: null };
 }
 
 // Update node project information based on new parent
 function updateNodeProjectInfo(node, newParent) {
     const projectInfo = getProjectInfoFromParent(newParent);
+    node.teamId = projectInfo.teamId;
     node.teamName = projectInfo.teamName;
     node.projectName = projectInfo.projectName;
     node.projectId = projectInfo.projectId;
@@ -323,6 +324,7 @@ function convertLinearIssuesToMindMap(filteredIssues, allIssues = null) {
 
         // Set node type and project information
         node.nodeType = 'issue';
+        node.teamId = issue.team?.id || null;
         node.teamName = issue.team?.name || issue.team?.key || null;
         node.projectName = issue.project?.name || null;
         node.projectId = issue.project?.id || null;
@@ -341,12 +343,18 @@ function convertLinearIssuesToMindMap(filteredIssues, allIssues = null) {
     const issuesWithoutTeam = [];
 
     issuesToProcess.forEach(issue => {
+        const teamId = issue.team?.id;
         const teamName = issue.team?.name || issue.team?.key;
-        if (teamName) {
-            if (!teamGroups.has(teamName)) {
-                teamGroups.set(teamName, []);
+        if (teamId && teamName) {
+            // Use teamId as the key to ensure uniqueness
+            if (!teamGroups.has(teamId)) {
+                teamGroups.set(teamId, {
+                    teamId: teamId,
+                    teamName: teamName,
+                    issues: []
+                });
             }
-            teamGroups.get(teamName).push(issue);
+            teamGroups.get(teamId).issues.push(issue);
         } else {
             issuesWithoutTeam.push(issue);
         }
@@ -370,10 +378,11 @@ function convertLinearIssuesToMindMap(filteredIssues, allIssues = null) {
     const teamNodes = [];
 
     // Process each team
-    teamGroups.forEach((teamIssues, teamName) => {
+    teamGroups.forEach((teamData, teamId) => {
+        const { teamName, issues: teamIssues } = teamData;
         // Create team node (root level)
         const teamNode = new MindMapNode(
-            `team-${teamName}`,
+            `team-${teamId}`,
             teamName,
             `Team: ${teamName}`,
             null, // No parent - this is a root node
@@ -381,6 +390,7 @@ function convertLinearIssuesToMindMap(filteredIssues, allIssues = null) {
             []
         );
         teamNode.nodeType = 'team';
+        teamNode.teamId = teamId;
         teamNode.teamName = teamName;
 
         // Group issues within this team by project
@@ -419,6 +429,7 @@ function convertLinearIssuesToMindMap(filteredIssues, allIssues = null) {
                 []
             );
             projectNode.nodeType = 'project';
+            projectNode.teamId = teamId;
             projectNode.teamName = teamName;
             projectNode.projectName = projectName;
             projectNode.projectId = projectId;
