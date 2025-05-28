@@ -852,9 +852,10 @@ function openNewIssueDialog(parentId) {
         const projectInfo = getProjectInfoFromParent(parent);
         tempNode.teamName = projectInfo.teamName;
         tempNode.projectName = projectInfo.projectName;
+        tempNode.projectId = projectInfo.projectId;
 
         console.log(`Creating new issue under parent: ${parent.name} (${parent.nodeType})`);
-        console.log(`Pre-populated project info - Team: ${tempNode.teamName}, Project: ${tempNode.projectName}`);
+        console.log(`Pre-populated project info - Team: ${tempNode.teamName}, Project: ${tempNode.projectName}, ProjectId: ${tempNode.projectId}`);
     }
 
     openIssueDialog(tempNode, function(updates) {

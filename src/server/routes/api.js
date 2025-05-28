@@ -91,6 +91,10 @@ router.get('/test-mindmap', async (req, res) => {
                                     name
                                     key
                                 }
+                                project {
+                                    id
+                                    name
+                                }
                                 parent {
                                     id
                                 }

@@ -20,6 +20,7 @@ function openIssueDialog(node, onSave) {
     // Populate project information fields (read-only)
     const teamField = document.getElementById('issue-team');
     const projectField = document.getElementById('issue-project');
+    const projectIdField = document.getElementById('issue-project-id');
 
     if (teamField) {
         // Handle different node types and fallback values
@@ -41,6 +42,17 @@ function openIssueDialog(node, onSave) {
             projectValue = node.name;
         }
         projectField.value = projectValue;
+    }
+
+    if (projectIdField) {
+        // Handle different node types and fallback values
+        let projectIdValue = 'No project ID';
+        if (node.projectId) {
+            projectIdValue = node.projectId;
+        } else if (node.nodeType === 'project') {
+            projectIdValue = node.id;
+        }
+        projectIdField.value = projectIdValue;
     }
 
     // Show dialog

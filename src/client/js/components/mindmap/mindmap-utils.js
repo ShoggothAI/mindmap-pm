@@ -177,21 +177,21 @@ function clearNodeCustomPosition(node) {
 // Get project information from a parent node
 function getProjectInfoFromParent(parentNode) {
     if (!parentNode) {
-        return { teamName: null, projectName: null };
+        return { teamName: null, projectName: null, projectId: null };
     }
 
     if (parentNode.nodeType === 'team') {
         // Parent is a team node - no project
-        return { teamName: parentNode.teamName, projectName: null };
+        return { teamName: parentNode.teamName, projectName: null, projectId: null };
     } else if (parentNode.nodeType === 'project') {
         // Parent is a project node - inherit team and project
-        return { teamName: parentNode.teamName, projectName: parentNode.projectName };
+        return { teamName: parentNode.teamName, projectName: parentNode.projectName, projectId: parentNode.projectId };
     } else if (parentNode.nodeType === 'issue') {
         // Parent is an issue - inherit its project info
-        return { teamName: parentNode.teamName, projectName: parentNode.projectName };
+        return { teamName: parentNode.teamName, projectName: parentNode.projectName, projectId: parentNode.projectId };
     }
 
-    return { teamName: null, projectName: null };
+    return { teamName: null, projectName: null, projectId: null };
 }
 
 // Update node project information based on new parent
@@ -199,6 +199,7 @@ function updateNodeProjectInfo(node, newParent) {
     const projectInfo = getProjectInfoFromParent(newParent);
     node.teamName = projectInfo.teamName;
     node.projectName = projectInfo.projectName;
+    node.projectId = projectInfo.projectId;
 }
 
 // Check if a node has a custom position
@@ -324,6 +325,7 @@ function convertLinearIssuesToMindMap(filteredIssues, allIssues = null) {
         node.nodeType = 'issue';
         node.teamName = issue.team?.name || issue.team?.key || null;
         node.projectName = issue.project?.name || null;
+        node.projectId = issue.project?.id || null;
 
         return node;
     }
@@ -386,12 +388,18 @@ function convertLinearIssuesToMindMap(filteredIssues, allIssues = null) {
         const issuesWithoutProject = [];
 
         teamIssues.forEach(issue => {
+            const projectId = issue.project?.id;
             const projectName = issue.project?.name;
-            if (projectName) {
-                if (!projectGroups.has(projectName)) {
-                    projectGroups.set(projectName, []);
+            if (projectId && projectName) {
+                // Use projectId as the key to ensure uniqueness
+                if (!projectGroups.has(projectId)) {
+                    projectGroups.set(projectId, {
+                        projectId: projectId,
+                        projectName: projectName,
+                        issues: []
+                    });
                 }
-                projectGroups.get(projectName).push(issue);
+                projectGroups.get(projectId).issues.push(issue);
             } else {
                 issuesWithoutProject.push(issue);
             }
@@ -400,9 +408,10 @@ function convertLinearIssuesToMindMap(filteredIssues, allIssues = null) {
         console.log(`Team ${teamName}: ${projectGroups.size} projects, ${issuesWithoutProject.length} issues without project`);
 
         // Add project nodes as children of team
-        projectGroups.forEach((projectIssues, projectName) => {
+        projectGroups.forEach((projectData, projectId) => {
+            const { projectName, issues: projectIssues } = projectData;
             const projectNode = new MindMapNode(
-                `project-${teamName}-${projectName}`,
+                `project-${teamName}-${projectId}`,
                 projectName,
                 `Project: ${projectName}`,
                 teamNode.id,
@@ -412,11 +421,12 @@ function convertLinearIssuesToMindMap(filteredIssues, allIssues = null) {
             projectNode.nodeType = 'project';
             projectNode.teamName = teamName;
             projectNode.projectName = projectName;
+            projectNode.projectId = projectId;
 
             // Find root issues for this project (issues without parent)
             const rootIssuesForProject = projectIssues.filter(issue => !issue.parent?.id);
 
-            console.log(`Project ${projectName}: ${projectIssues.length} total issues, ${rootIssuesForProject.length} root issues`);
+            console.log(`Project ${projectName} (${projectId}): ${projectIssues.length} total issues, ${rootIssuesForProject.length} root issues`);
 
             // Add root issues as children of the project node
             rootIssuesForProject.forEach(rootIssue => {
