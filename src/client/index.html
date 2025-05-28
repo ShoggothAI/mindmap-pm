@@ -161,6 +161,19 @@
                         <option value="done">Done</option>
                     </select>
                 </div>
+                <div class="form-group project-info-section">
+                    <label>📋 Project Information (Read-only):</label>
+                    <div class="project-info-grid">
+                        <div class="project-info-item">
+                            <label for="issue-team">Team:</label>
+                            <input type="text" id="issue-team" disabled class="readonly-field">
+                        </div>
+                        <div class="project-info-item">
+                            <label for="issue-project">Project:</label>
+                            <input type="text" id="issue-project" disabled class="readonly-field">
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="dialog-footer">
                 <button class="btn btn-secondary" onclick="closeIssueDialog()">Cancel</button>

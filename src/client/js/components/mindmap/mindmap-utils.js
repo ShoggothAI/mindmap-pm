@@ -22,6 +22,10 @@ class MindMapNode {
         // Filtering properties
         this.isFiltered = true; // Whether this node matches the current filter
         this.isGreyedOut = false; // Whether this node should be shown greyed out
+        // Node type and project information
+        this.nodeType = null; // 'team' | 'project' | 'issue'
+        this.teamName = null; // Team name for team and project nodes
+        this.projectName = null; // Project name for project nodes and issues with projects
     }
 }
 
@@ -113,6 +117,10 @@ function addChildNode(parentNode, childName) {
         []
     );
 
+    // Set node type and inherit project information from parent
+    newChild.nodeType = 'issue'; // New nodes are always issues
+    updateNodeProjectInfo(newChild, parentNode);
+
     // Note: Positioning will be handled by the D3 rendering layer using the same logic as initial layout
 
     parentNode.children.push(newChild);
@@ -164,6 +172,33 @@ function clearNodeCustomPosition(node) {
     node.x = null;
     node.y = null;
     node.hasCustomPosition = false;
+}
+
+// Get project information from a parent node
+function getProjectInfoFromParent(parentNode) {
+    if (!parentNode) {
+        return { teamName: null, projectName: null };
+    }
+
+    if (parentNode.nodeType === 'team') {
+        // Parent is a team node - no project
+        return { teamName: parentNode.teamName, projectName: null };
+    } else if (parentNode.nodeType === 'project') {
+        // Parent is a project node - inherit team and project
+        return { teamName: parentNode.teamName, projectName: parentNode.projectName };
+    } else if (parentNode.nodeType === 'issue') {
+        // Parent is an issue - inherit its project info
+        return { teamName: parentNode.teamName, projectName: parentNode.projectName };
+    }
+
+    return { teamName: null, projectName: null };
+}
+
+// Update node project information based on new parent
+function updateNodeProjectInfo(node, newParent) {
+    const projectInfo = getProjectInfoFromParent(newParent);
+    node.teamName = projectInfo.teamName;
+    node.projectName = projectInfo.projectName;
 }
 
 // Check if a node has a custom position
@@ -285,6 +320,11 @@ function convertLinearIssuesToMindMap(filteredIssues, allIssues = null) {
         node.isFiltered = filteredIssueIds.has(issue.id);
         node.isGreyedOut = !node.isFiltered;
 
+        // Set node type and project information
+        node.nodeType = 'issue';
+        node.teamName = issue.team?.name || issue.team?.key || null;
+        node.projectName = issue.project?.name || null;
+
         return node;
     }
 
@@ -338,6 +378,8 @@ function convertLinearIssuesToMindMap(filteredIssues, allIssues = null) {
             "in-progress",
             []
         );
+        teamNode.nodeType = 'team';
+        teamNode.teamName = teamName;
 
         // Group issues within this team by project
         const projectGroups = new Map();
@@ -367,6 +409,9 @@ function convertLinearIssuesToMindMap(filteredIssues, allIssues = null) {
                 "in-progress",
                 []
             );
+            projectNode.nodeType = 'project';
+            projectNode.teamName = teamName;
+            projectNode.projectName = projectName;
 
             // Find root issues for this project (issues without parent)
             const rootIssuesForProject = projectIssues.filter(issue => !issue.parent?.id);
@@ -411,6 +456,8 @@ function convertLinearIssuesToMindMap(filteredIssues, allIssues = null) {
             "backlog",
             []
         );
+        unassignedTeamNode.nodeType = 'team';
+        unassignedTeamNode.teamName = null;
 
         // Find root issues (without parent) among unassigned issues
         const rootUnassignedIssues = issuesWithoutTeam.filter(issue => !issue.parent?.id);
@@ -460,3 +507,5 @@ window.updateNode = updateNode;
 window.findNodeById = findNodeById;
 window.toggleNodeCollapsed = toggleNodeCollapsed;
 window.convertLinearIssuesToMindMap = convertLinearIssuesToMindMap;
+window.getProjectInfoFromParent = getProjectInfoFromParent;
+window.updateNodeProjectInfo = updateNodeProjectInfo;

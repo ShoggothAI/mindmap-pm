@@ -7,20 +7,46 @@ let dialogSaveCallback = null;
 // Open the issue dialog with a node
 function openIssueDialog(node, onSave) {
     if (!node) return;
-    
+
     currentDialogNode = node;
     dialogSaveCallback = onSave;
-    
+
     // Populate form fields
     document.getElementById('issue-name').value = node.name || '';
     document.getElementById('issue-description').value = node.description || '';
     document.getElementById('issue-status').value = node.status || 'backlog';
     document.getElementById('issue-id-display').textContent = `#${node.id}`;
-    
+
+    // Populate project information fields (read-only)
+    const teamField = document.getElementById('issue-team');
+    const projectField = document.getElementById('issue-project');
+
+    if (teamField) {
+        // Handle different node types and fallback values
+        let teamValue = 'No team assigned';
+        if (node.teamName) {
+            teamValue = node.teamName;
+        } else if (node.nodeType === 'team') {
+            teamValue = node.name;
+        }
+        teamField.value = teamValue;
+    }
+
+    if (projectField) {
+        // Handle different node types and fallback values
+        let projectValue = 'No project assigned';
+        if (node.projectName) {
+            projectValue = node.projectName;
+        } else if (node.nodeType === 'project') {
+            projectValue = node.name;
+        }
+        projectField.value = projectValue;
+    }
+
     // Show dialog
     const dialog = document.getElementById('issue-dialog');
     dialog.classList.remove('hidden');
-    
+
     // Focus on name field
     document.getElementById('issue-name').focus();
     document.getElementById('issue-name').select();
@@ -37,16 +63,16 @@ function closeIssueDialog() {
 // Save the issue dialog changes
 function saveIssueDialog() {
     if (!currentDialogNode || !dialogSaveCallback) return;
-    
+
     const updates = {
         name: document.getElementById('issue-name').value,
         description: document.getElementById('issue-description').value,
         status: document.getElementById('issue-status').value
     };
-    
+
     // Call the save callback
     dialogSaveCallback(updates);
-    
+
     // Close dialog
     closeIssueDialog();
 }

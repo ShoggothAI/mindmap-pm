@@ -858,6 +858,73 @@ tr:hover {
     background: #2563eb;
 }
 
+/* Project Information Styles */
+.project-info-section {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 16px;
+    position: relative;
+}
+
+.project-info-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    border-radius: 8px 8px 0 0;
+}
+
+.project-info-section > label {
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 12px;
+    display: block;
+}
+
+.project-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.project-info-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.project-info-item label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #6b7280;
+    margin-bottom: 4px;
+}
+
+.readonly-field {
+    background: #f3f4f6 !important;
+    color: #6b7280 !important;
+    cursor: not-allowed;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.875rem;
+}
+
+.readonly-field:focus {
+    box-shadow: none !important;
+    border-color: #d1d5db !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+    .project-info-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+}
+
 /* Context Menu Styles */
 .context-menu {
     position: fixed;

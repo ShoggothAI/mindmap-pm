@@ -835,17 +835,30 @@ function positionNewNode(newNodeId) {
 
 // Open dialog for creating a new issue
 function openNewIssueDialog(parentId) {
+    // Find the parent node to get project information
+    const parent = findNodeById(mindMapData, parentId);
+
     // Create a temporary node object for the dialog (not added to the tree yet)
     const tempNode = {
         id: 'temp-' + Date.now(),
         name: '',
         description: '',
-        status: 'backlog'
+        status: 'backlog',
+        nodeType: 'issue'
     };
+
+    // Pre-populate project information based on parent
+    if (parent && typeof getProjectInfoFromParent === 'function') {
+        const projectInfo = getProjectInfoFromParent(parent);
+        tempNode.teamName = projectInfo.teamName;
+        tempNode.projectName = projectInfo.projectName;
+
+        console.log(`Creating new issue under parent: ${parent.name} (${parent.nodeType})`);
+        console.log(`Pre-populated project info - Team: ${tempNode.teamName}, Project: ${tempNode.projectName}`);
+    }
 
     openIssueDialog(tempNode, function(updates) {
         // Only create the actual node when Save is clicked
-        const parent = findNodeById(mindMapData, parentId);
         if (parent) {
             const newChild = addChildNode(parent, updates.name || 'New Issue');
             // Apply all the updates to the new node
@@ -891,6 +904,31 @@ function reparentNode(nodeId, newParentId) {
             newParent.children = [];
         }
         nodeToMove.parentId = newParentId;
+
+        // Update project information based on new parent
+        if (typeof updateNodeProjectInfo === 'function') {
+            console.log(`Updating project info for node ${nodeToMove.name} (${nodeToMove.id}) moving to parent ${newParent.name} (${newParent.id})`);
+            console.log(`Parent node type: ${newParent.nodeType}, team: ${newParent.teamName}, project: ${newParent.projectName}`);
+            console.log(`Node before update - team: ${nodeToMove.teamName}, project: ${nodeToMove.projectName}`);
+
+            updateNodeProjectInfo(nodeToMove, newParent);
+
+            console.log(`Node after update - team: ${nodeToMove.teamName}, project: ${nodeToMove.projectName}`);
+
+            // Recursively update project info for all descendants
+            function updateDescendantsProjectInfo(node) {
+                if (node.children) {
+                    node.children.forEach(child => {
+                        console.log(`Updating descendant ${child.name} - before: team=${child.teamName}, project=${child.projectName}`);
+                        updateNodeProjectInfo(child, node);
+                        console.log(`Updating descendant ${child.name} - after: team=${child.teamName}, project=${child.projectName}`);
+                        updateDescendantsProjectInfo(child);
+                    });
+                }
+            }
+            updateDescendantsProjectInfo(nodeToMove);
+        }
+
         newParent.children.push(nodeToMove);
         updateMindMapVisualization();
     }
