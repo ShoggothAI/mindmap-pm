@@ -675,6 +675,78 @@ function convertLinearIssuesToMindMap(filteredIssues, allIssues = null) {
     }
 }
 
+// Reparent a node with Linear synchronization
+async function reparentNodeWithLinearSync(nodeId, newParentId, rootNode) {
+    if (nodeId === newParentId || nodeId === "root") return false;
+
+    // Find the node to move
+    const nodeToMove = findNodeById(rootNode, nodeId);
+    if (!nodeToMove) {
+        console.error('Node to move not found:', nodeId);
+        return false;
+    }
+
+    // Only sync issue nodes with Linear
+    if (nodeToMove.nodeType !== 'issue') {
+        console.log('Skipping Linear sync for non-issue node:', nodeToMove.nodeType);
+        return false;
+    }
+
+    // Find the new parent
+    const newParent = findNodeById(rootNode, newParentId);
+    if (!newParent) {
+        console.error('New parent not found:', newParentId);
+        return false;
+    }
+
+    // Prepare the update data for Linear
+    const updateData = {
+        parentId: null, // Will be set based on new parent type
+        projectId: newParent.projectId || null,
+        teamId: newParent.teamId || null
+    };
+
+    // Set parentId based on new parent type
+    if (newParent.nodeType === 'issue') {
+        // Moving under another issue - set as parent
+        updateData.parentId = newParent.id;
+    } else if (newParent.nodeType === 'project' || newParent.nodeType === 'team') {
+        // Moving under project or team - no parent issue
+        updateData.parentId = null;
+    }
+
+    console.log('Reparenting node in Linear:', {
+        nodeId: nodeId,
+        nodeName: nodeToMove.name,
+        newParentId: newParentId,
+        newParentName: newParent.name,
+        newParentType: newParent.nodeType,
+        updateData: updateData
+    });
+
+    try {
+        // Update in Linear first
+        const updatedIssue = await updateLinearIssue(nodeId, updateData);
+
+        // If Linear update succeeds, update the mindmap locally
+        // This will be handled by the existing reparentNode function
+        console.log('Successfully updated issue in Linear, now updating mindmap');
+        return true;
+
+    } catch (error) {
+        console.error('Failed to update issue in Linear:', error);
+
+        // Ask user if they want to update locally anyway
+        const updateLocally = confirm(
+            `Failed to update issue in Linear: ${error.message}\n\n` +
+            'Do you want to move it in the mindmap anyway? ' +
+            '(This will create a mismatch between Linear and the mindmap)'
+        );
+
+        return updateLocally;
+    }
+}
+
 // Export functions for global use
 window.MindMapNode = MindMapNode;
 window.createMindMapData = createMindMapData;
@@ -683,6 +755,7 @@ window.addChildNodeWithLinearSync = addChildNodeWithLinearSync;
 window.deleteNodeWithLinearSync = deleteNodeWithLinearSync;
 window.deleteNodeFromTree = deleteNodeFromTree;
 window.convertLinearStateToStatus = convertLinearStateToStatus;
+window.reparentNodeWithLinearSync = reparentNodeWithLinearSync;
 window.updateNodeName = updateNodeName;
 window.updateNode = updateNode;
 window.findNodeById = findNodeById;

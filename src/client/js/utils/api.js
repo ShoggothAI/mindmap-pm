@@ -318,7 +318,96 @@ function getLinearStateIdFromStatus(status, teamId) {
     return null; // Let Linear use the default state
 }
 
+// GraphQL mutation to update an issue in Linear
+const UPDATE_ISSUE_MUTATION = `
+  mutation IssueUpdate($id: String!, $parentId: String, $projectId: String, $teamId: String) {
+    issueUpdate(
+      id: $id,
+      input: {
+        parentId: $parentId
+        projectId: $projectId
+        teamId: $teamId
+      }
+    ) {
+      success
+      issue {
+        id
+        identifier
+        title
+        description
+        team {
+          id
+          name
+          key
+        }
+        project {
+          id
+          name
+        }
+        parent {
+          id
+        }
+        state {
+          id
+          name
+          type
+        }
+      }
+    }
+  }
+`;
+
+// Function to update an issue in Linear (for reparenting)
+async function updateLinearIssue(issueId, updateData) {
+    const token = await getCachedToken();
+    if (!token) {
+        throw new Error('No Linear API token available');
+    }
+
+    const variables = {
+        id: issueId,
+        parentId: updateData.parentId || null,
+        projectId: updateData.projectId || null,
+        teamId: updateData.teamId || null
+    };
+
+    console.log('Updating Linear issue with data:', variables);
+
+    const response = await fetch('/api/linear', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            query: UPDATE_ISSUE_MUTATION,
+            variables: variables
+        })
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Update issue response error:', errorText);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    if (data.errors) {
+        console.error('Update issue GraphQL errors:', data.errors);
+        throw new Error(data.errors[0].message || 'GraphQL error occurred');
+    }
+
+    if (!data.data?.issueUpdate?.success) {
+        throw new Error('Failed to update issue in Linear');
+    }
+
+    console.log('Successfully updated Linear issue:', data.data.issueUpdate.issue);
+    return data.data.issueUpdate.issue;
+}
+
 // Export functions for global use
 window.createLinearIssue = createLinearIssue;
 window.deleteLinearIssue = deleteLinearIssue;
+window.updateLinearIssue = updateLinearIssue;
 window.getLinearStateIdFromStatus = getLinearStateIdFromStatus;

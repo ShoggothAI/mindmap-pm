@@ -883,10 +883,29 @@ function openNewIssueDialog(parentId) {
     });
 }
 
-// Reparent a node
-function reparentNode(nodeId, newParentId) {
+// Reparent a node with Linear integration
+async function reparentNode(nodeId, newParentId) {
     if (nodeId === newParentId || nodeId === "root") return;
 
+    try {
+        // First, try to update in Linear
+        const shouldProceed = await reparentNodeWithLinearSync(nodeId, newParentId, mindMapData);
+
+        if (!shouldProceed) {
+            console.log('Reparenting cancelled or failed');
+            return;
+        }
+
+        // If Linear update succeeded (or user chose to proceed anyway), update locally
+        reparentNodeLocally(nodeId, newParentId);
+
+    } catch (error) {
+        console.error('Error during reparenting:', error);
+    }
+}
+
+// Local reparenting function (extracted from original reparentNode)
+function reparentNodeLocally(nodeId, newParentId) {
     // Find and remove the node from its current parent
     function removeFromParent(node) {
         if (node.children) {
