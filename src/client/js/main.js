@@ -775,8 +775,8 @@ async function refreshIssues() {
 
         console.log(`Applied filters: ${allIssues.length} -> ${filteredIssues.length} issues`);
 
-        // Update filter dropdowns with new data (but preserve selections)
-        populateFilters(allIssues);
+        // Note: No need to call populateFilters() during refresh since filter options
+        // come from Linear workspace configuration and don't change
 
         // Restore search input value and clear button state
         const searchInput = document.getElementById('search-input');
@@ -799,7 +799,7 @@ async function refreshIssues() {
             // Use the merge function to preserve positioning
             if (currentMindMapData && typeof updateMindMapWithFreshData === 'function') {
                 console.log('Using merge function to preserve mindmap positioning');
-                window.mindMapData = updateMindMapWithFreshData(allIssues, currentMindMapData, filteredIssues);
+                window.mindMapData = updateMindMapWithFreshData(freshIssues, currentMindMapData, filteredIssues);
                 window.isRefreshing = true; // Set refresh flag
             } else {
                 console.log('No existing mindmap data or merge function, creating fresh');

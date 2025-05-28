@@ -65,21 +65,26 @@ mindmap-pm/
    ```
 
 3. Set up environment variables:
-   Create a `.env.ubuntu` file (or modify the path in server.js):
+   Create a `.env` file (or modify the path in server.js):
    ```
-   ANOTHER_LINEAR_API_KEY=your_linear_api_token_here
+   LINEAR_API_KEY=your_linear_api_token_here
    ```
 
 4. Start the development server:
    ```bash
-   npm start
+   node server.js /path/to/.env
    ```
+or set the env variable LINEAR_API_KEY in some different way and then run
+
+```bash
+node server.js
+```
 
 5. Open your browser and navigate to `http://localhost:3000`
 
 ### Usage
 
-1. **Enter Linear API Token**: On first visit, enter your Linear API token
+1. **Enter Linear API Token**: if neither .env file was passed nor env var set 
 2. **View Issues**: Issues will be displayed in a table format
 3. **Switch to Mindmap**: Use the tab navigation to switch to the interactive mindmap view
 4. **Interact with Mindmap**:

@@ -4,7 +4,7 @@ const router = express.Router();
 
 // Get cached Linear token endpoint
 router.get('/token-status', (req, res) => {
-    const cachedToken = process.env.ANOTHER_LINEAR_API_KEY || process.env.LINEAR_API_KEY;
+    const cachedToken = process.env.LINEAR_API_KEY;
     res.json({
         hasToken: !!cachedToken,
         source: cachedToken ? 'environment' : null
@@ -13,7 +13,7 @@ router.get('/token-status', (req, res) => {
 
 // Get cached Linear token (if available)
 router.get('/cached-token', (req, res) => {
-    const cachedToken = process.env.ANOTHER_LINEAR_API_KEY || process.env.LINEAR_API_KEY;
+    const cachedToken = process.env.LINEAR_API_KEY;
     if (cachedToken) {
         res.json({ token: cachedToken });
     } else {
@@ -34,7 +34,7 @@ router.post('/linear', async (req, res) => {
 
         // If no token provided in request, try to use cached token from environment
         if (!token) {
-            token = process.env.ANOTHER_LINEAR_API_KEY || process.env.LINEAR_API_KEY;
+            token = process.env.LINEAR_API_KEY;
         }
 
         const response = await fetch('https://api.linear.app/graphql', {
@@ -67,7 +67,7 @@ router.get('/test-mindmap', async (req, res) => {
         const { default: fetch } = await import('node-fetch');
 
         // Get cached token
-        const token = process.env.ANOTHER_LINEAR_API_KEY || process.env.LINEAR_API_KEY;
+        const token = process.env.LINEAR_API_KEY;
         if (!token) {
             return res.status(400).json({ error: 'No token available' });
         }

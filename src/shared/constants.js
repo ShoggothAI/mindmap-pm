@@ -20,8 +20,7 @@ const API_ENDPOINTS = {
 
 // Environment variables
 const ENV_KEYS = {
-    LINEAR_API_KEY: 'LINEAR_API_KEY',
-    ANOTHER_LINEAR_API_KEY: 'ANOTHER_LINEAR_API_KEY'
+    LINEAR_API_KEY: 'LINEAR_API_KEY'
 };
 
 module.exports = {
