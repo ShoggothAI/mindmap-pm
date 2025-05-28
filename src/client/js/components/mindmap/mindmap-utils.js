@@ -19,6 +19,9 @@ class MindMapNode {
         this.relativeX = null; // X position relative to parent
         this.relativeY = null; // Y position relative to parent
         this.hasRelativePosition = false; // Flag to track if relative position is stored
+        // Filtering properties
+        this.isFiltered = true; // Whether this node matches the current filter
+        this.isGreyedOut = false; // Whether this node should be shown greyed out
     }
 }
 
@@ -197,12 +200,60 @@ function hasRelativePosition(node) {
 }
 
 // Convert Linear issues to MindMapNode structure
-function convertLinearIssuesToMindMap(issues) {
-    if (!issues || issues.length === 0) {
+// filteredIssues: the issues that match the current filter
+// allIssues: all available issues (used to find missing parents)
+function convertLinearIssuesToMindMap(filteredIssues, allIssues = null) {
+    if (!filteredIssues || filteredIssues.length === 0) {
         return createMindMapData(); // Return sample data if no issues
     }
 
-    console.log(`Converting ${issues.length} Linear issues to mind map structure`);
+    // If allIssues not provided, use filteredIssues (backward compatibility)
+    if (!allIssues) {
+        allIssues = filteredIssues;
+    }
+
+    console.log(`Converting ${filteredIssues.length} filtered issues to mind map structure`);
+    console.log('Filtered issues:', filteredIssues.map(issue => ({
+        id: issue.id,
+        title: issue.title,
+        identifier: issue.identifier,
+        team: issue.team?.name,
+        parent: issue.parent?.id ? { id: issue.parent.id, title: issue.parent.title } : null
+    })));
+
+    // Create sets for quick lookup
+    const filteredIssueIds = new Set(filteredIssues.map(issue => issue.id));
+    const allIssuesMap = new Map(allIssues.map(issue => [issue.id, issue]));
+
+    // Find missing parent issues that need to be included (greyed out)
+    const missingParents = new Set();
+
+    function findMissingParentsRecursive(issue) {
+        if (issue.parent?.id && !filteredIssueIds.has(issue.parent.id)) {
+            const parentIssue = allIssuesMap.get(issue.parent.id);
+            if (parentIssue && !missingParents.has(issue.parent.id)) {
+                missingParents.add(issue.parent.id);
+                // Recursively check if this parent also has missing parents
+                findMissingParentsRecursive(parentIssue);
+            }
+        }
+    }
+
+    // Find all missing parents
+    filteredIssues.forEach(findMissingParentsRecursive);
+
+    console.log(`Found ${missingParents.size} missing parent issues:`, Array.from(missingParents));
+
+    // Combine filtered issues with missing parents
+    const issuesToProcess = [...filteredIssues];
+    missingParents.forEach(parentId => {
+        const parentIssue = allIssuesMap.get(parentId);
+        if (parentIssue) {
+            issuesToProcess.push(parentIssue);
+        }
+    });
+
+    console.log(`Processing ${issuesToProcess.length} total issues (${filteredIssues.length} filtered + ${missingParents.size} parents)`);
 
     // Convert Linear status to our status format
     function convertStatus(linearState) {
@@ -219,7 +270,7 @@ function convertLinearIssuesToMindMap(issues) {
 
     // Convert a Linear issue to MindMapNode
     function convertIssue(issue, parentId = null) {
-        return new MindMapNode(
+        const node = new MindMapNode(
             issue.id,
             issue.title || issue.identifier || 'Untitled Issue',
             issue.description || '',
@@ -227,11 +278,17 @@ function convertLinearIssuesToMindMap(issues) {
             convertStatus(issue.state),
             []
         );
+
+        // Mark whether this issue is filtered (visible) or greyed out (parent only)
+        node.isFiltered = filteredIssueIds.has(issue.id);
+        node.isGreyedOut = !node.isFiltered;
+
+        return node;
     }
 
     // Create a map of issues by ID for quick lookup
     const issueMap = new Map();
-    issues.forEach(issue => {
+    issuesToProcess.forEach(issue => {
         issueMap.set(issue.id, issue);
     });
 
@@ -239,7 +296,7 @@ function convertLinearIssuesToMindMap(issues) {
     const projectGroups = new Map();
     const issuesWithoutTeam = [];
 
-    issues.forEach(issue => {
+    issuesToProcess.forEach(issue => {
         const teamName = issue.team?.name || issue.team?.key;
         if (teamName) {
             if (!projectGroups.has(teamName)) {
@@ -291,6 +348,17 @@ function convertLinearIssuesToMindMap(issues) {
         const rootIssuesForTeam = teamIssues.filter(issue => !issue.parent?.id);
 
         console.log(`Team ${teamName}: ${teamIssues.length} total issues, ${rootIssuesForTeam.length} root issues`);
+        console.log(`Root issues for ${teamName}:`, rootIssuesForTeam.map(issue => ({
+            id: issue.id,
+            title: issue.title,
+            identifier: issue.identifier
+        })));
+        console.log(`Child issues for ${teamName}:`, teamIssues.filter(issue => issue.parent?.id).map(issue => ({
+            id: issue.id,
+            title: issue.title,
+            identifier: issue.identifier,
+            parent: issue.parent.id
+        })));
 
         // Add root issues as children of the project node
         rootIssuesForTeam.forEach(rootIssue => {

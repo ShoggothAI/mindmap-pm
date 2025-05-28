@@ -9,17 +9,18 @@ let currentZoomTransform = null;
 let isInitialRender = true;
 
 // Initialize the interactive mind map
-function initializeInteractiveMindMap(issues = null) {
-    console.log('Initializing interactive mind map with', issues ? issues.length : 0, 'issues');
+function initializeInteractiveMindMap(filteredIssues = null, allIssues = null) {
+    console.log('Initializing interactive mind map with', filteredIssues ? filteredIssues.length : 0, 'filtered issues');
+    console.log('All issues available:', allIssues ? allIssues.length : 0);
 
-    if (issues && issues.length > 0) {
-        console.log('Sample of issues:', issues.slice(0, 3));
+    if (filteredIssues && filteredIssues.length > 0) {
+        console.log('Sample of filtered issues:', filteredIssues.slice(0, 3));
     }
 
     // Convert issues to mind map data or use sample data
-    if (issues && issues.length > 0) {
+    if (filteredIssues && filteredIssues.length > 0) {
         console.log('Converting Linear issues to mind map...');
-        mindMapData = convertLinearIssuesToMindMap(issues);
+        mindMapData = convertLinearIssuesToMindMap(filteredIssues, allIssues);
         console.log('Mind map data created:', mindMapData);
     } else {
         console.log('No issues provided, using sample data');
@@ -85,8 +86,9 @@ function updateMindMapVisualization() {
     const zoom = d3.zoom()
         .scaleExtent([0.1, 4])
         .filter(function() {
-            // Only allow zoom on wheel events, exclude double-click to prevent zoom on node double-click
-            return d3.event.type === 'wheel';
+            // Allow zoom on wheel events and pan on drag events
+            // Exclude double-click to prevent zoom on node double-click
+            return d3.event.type === 'wheel' || d3.event.type === 'mousedown';
         })
         .on("zoom", function() {
             currentZoomTransform = d3.event.transform;
@@ -197,7 +199,15 @@ function updateMindMapVisualization() {
     nodes.append("rect")
         .attr("rx", d => d.depth === 0 ? 25 : 15)
         .attr("ry", d => d.depth === 0 ? 25 : 15)
-        .style("fill", d => d.data.id === selectedNodeId ? "#6366F1" : (d.depth === 0 ? "#8B5CF6" : "#E0E7FF"))
+        .style("fill", d => {
+            if (d.data.id === selectedNodeId) {
+                return "#6366F1"; // Selected node color
+            } else if (d.data.isGreyedOut) {
+                return d.depth === 0 ? "#D1D5DB" : "#F3F4F6"; // Greyed out colors
+            } else {
+                return d.depth === 0 ? "#8B5CF6" : "#E0E7FF"; // Normal colors
+            }
+        })
         .style("stroke", d => getStatusColor(d.data.status))
         .style("stroke-width", d => d.data.id === selectedNodeId ? 3 : 3)
         .each(function(d) {
@@ -252,7 +262,15 @@ function updateMindMapVisualization() {
         .style("dominant-baseline", "middle")
         .style("font-size", d => d.depth === 0 ? "16px" : "14px")
         .style("font-weight", d => d.depth === 0 ? "bold" : "normal")
-        .style("fill", d => d.data.id === selectedNodeId ? "white" : (d.depth === 0 ? "white" : "#374151"))
+        .style("fill", d => {
+            if (d.data.id === selectedNodeId) {
+                return "white"; // Selected node text
+            } else if (d.data.isGreyedOut) {
+                return "#9CA3AF"; // Greyed out text
+            } else {
+                return d.depth === 0 ? "white" : "#374151"; // Normal text colors
+            }
+        })
         .style("pointer-events", "none");
 
     // Add connection circles for non-root nodes
@@ -699,10 +717,29 @@ function updateMindMapVisualization() {
         });
     }
 
-    // Clear selection when clicking on empty space
+    // Clear selection when clicking on empty space (but not when dragging)
+    let isDragging = false;
+    let dragStartTime = 0;
+
+    svgElement.on("mousedown", function() {
+        isDragging = false;
+        dragStartTime = Date.now();
+    });
+
+    svgElement.on("mousemove", function() {
+        if (d3.event.buttons === 1) { // Left mouse button is pressed
+            isDragging = true;
+        }
+    });
+
     svgElement.on("click", function() {
-        setSelectedNode(null);
-        hideContextMenu();
+        // Only clear selection if this was a click, not the end of a drag
+        const clickDuration = Date.now() - dragStartTime;
+        if (!isDragging && clickDuration < 200) {
+            setSelectedNode(null);
+            hideContextMenu();
+        }
+        isDragging = false;
     });
 
     // Center the view initially or restore previous zoom

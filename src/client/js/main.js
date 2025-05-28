@@ -351,7 +351,7 @@ function switchTab(tabName, event) {
         if (filteredIssues && filteredIssues.length > 0) {
             console.log('Sample issue:', filteredIssues[0]);
         }
-        initializeInteractiveMindMap(filteredIssues);
+        initializeInteractiveMindMap(filteredIssues, allIssues);
     }
 }
 
@@ -575,7 +575,7 @@ function applyFilters() {
     const mindmapView = document.getElementById('interactive-mindmap-view');
     if (mindmapView && mindmapView.classList.contains('active')) {
         console.log('Updating mindmap with filtered issues');
-        initializeInteractiveMindMap(filteredIssues);
+        initializeInteractiveMindMap(filteredIssues, allIssues);
     }
 }
 
