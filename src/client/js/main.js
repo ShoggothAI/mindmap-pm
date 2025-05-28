@@ -579,6 +579,105 @@ function applyFilters() {
     }
 }
 
+// Function to refresh issues from Linear while preserving mindmap state
+async function refreshIssues() {
+    console.log('Refreshing issues from Linear...');
+
+    const refreshButton = document.getElementById('refresh-button');
+    const refreshIcon = refreshButton.querySelector('.refresh-icon');
+    const refreshText = refreshButton.querySelector('.refresh-text');
+
+    // Show loading state
+    refreshButton.disabled = true;
+    refreshButton.classList.add('loading');
+    refreshText.textContent = 'Refreshing...';
+
+    try {
+        // Get cached token
+        const token = await getCachedToken();
+        if (!token) {
+            showError('No Linear API token available. Please enter your token and fetch issues first.');
+            return;
+        }
+
+        // Store current mindmap data and zoom state before refresh
+        const currentMindMapData = window.mindMapData || null;
+        const currentZoomTransform = window.currentZoomTransform || null;
+
+        console.log('Preserving current mindmap state:', {
+            hasMindMapData: !!currentMindMapData,
+            hasZoomTransform: !!currentZoomTransform
+        });
+
+        // Fetch fresh issues from Linear
+        console.log('Fetching fresh issues from Linear...');
+        const freshIssues = await fetchAllIssues(token, (count) => {
+            refreshText.textContent = `Refreshing... (${count} found)`;
+        });
+
+        console.log(`Fetched ${freshIssues.length} fresh issues`);
+
+        // Update global allIssues array
+        allIssues = freshIssues;
+
+        // Preserve current filter selections and apply them to fresh data
+        console.log('Applying existing filters to fresh data');
+        filteredIssues = allIssues.filter(issue => {
+            const issueStatus = issue.state?.name || 'Unknown';
+            const issueAssignee = issue.assignee?.name || 'Unassigned';
+
+            const statusMatch = selectedStatuses.size === 0 || selectedStatuses.has(issueStatus);
+            const assigneeMatch = selectedAssignees.size === 0 || selectedAssignees.has(issueAssignee);
+
+            return statusMatch && assigneeMatch;
+        });
+
+        console.log(`Applied filters: ${allIssues.length} -> ${filteredIssues.length} issues`);
+
+        // Update filter dropdowns with new data (but preserve selections)
+        populateFilters(allIssues);
+
+        // Update table view
+        const issuesToDisplay = filteredIssues.slice(0, DISPLAY_LIMIT);
+        displayIssues(issuesToDisplay, filteredIssues.length);
+
+        // Update mindmap view if it's currently active, preserving positioning and zoom
+        const mindmapView = document.getElementById('interactive-mindmap-view');
+        if (mindmapView && mindmapView.classList.contains('active')) {
+            console.log('Updating mindmap with fresh data while preserving state');
+
+            // Use the merge function to preserve positioning
+            if (currentMindMapData && typeof updateMindMapWithFreshData === 'function') {
+                console.log('Using merge function to preserve mindmap positioning');
+                window.mindMapData = updateMindMapWithFreshData(allIssues, currentMindMapData, filteredIssues);
+            } else {
+                console.log('No existing mindmap data or merge function, creating fresh');
+                window.mindMapData = null; // Reset to trigger fresh creation
+            }
+
+            // Restore zoom state
+            if (currentZoomTransform) {
+                console.log('Restoring zoom state');
+                window.currentZoomTransform = currentZoomTransform;
+            }
+
+            // Re-initialize the mindmap
+            initializeInteractiveMindMap(filteredIssues, allIssues);
+        }
+
+        console.log('Refresh completed successfully');
+
+    } catch (error) {
+        console.error('Error during refresh:', error);
+        showError(`Failed to refresh issues: ${error.message}`);
+    } finally {
+        // Reset button state
+        refreshButton.disabled = false;
+        refreshButton.classList.remove('loading');
+        refreshText.textContent = 'Refresh';
+    }
+}
+
 // Close dropdowns when clicking outside
 document.addEventListener('click', function(event) {
     if (!event.target.closest('.multi-select-dropdown')) {

@@ -747,6 +747,96 @@ async function reparentNodeWithLinearSync(nodeId, newParentId, rootNode) {
     }
 }
 
+// Function to merge fresh Linear data with existing mindmap data while preserving positioning
+function mergeLinearDataWithMindMap(freshIssues, existingMindMapData) {
+    console.log('Merging fresh Linear data with existing mindmap data');
+    console.log('Fresh issues count:', freshIssues.length);
+    console.log('Existing mindmap data:', existingMindMapData);
+
+    // Create a map of existing nodes by ID for quick lookup
+    const existingNodesMap = new Map();
+
+    function collectExistingNodes(node) {
+        if (node.nodeType === 'issue') {
+            existingNodesMap.set(node.id, {
+                ...node,
+                // Preserve positioning data
+                x: node.x,
+                y: node.y,
+                relativeX: node.relativeX,
+                relativeY: node.relativeY,
+                hasCustomPosition: node.hasCustomPosition,
+                hasRelativePosition: node.hasRelativePosition,
+                collapsed: node.collapsed
+            });
+        }
+        if (node.children) {
+            node.children.forEach(collectExistingNodes);
+        }
+    }
+
+    if (existingMindMapData) {
+        collectExistingNodes(existingMindMapData);
+    }
+
+    console.log('Collected existing nodes:', existingNodesMap.size);
+
+    // Convert fresh issues to mindmap structure
+    const freshMindMapData = convertLinearIssuesToMindMap(freshIssues, freshIssues);
+
+    // Function to merge positioning data from existing nodes
+    function mergePositioningData(freshNode) {
+        if (freshNode.nodeType === 'issue' && existingNodesMap.has(freshNode.id)) {
+            const existingNode = existingNodesMap.get(freshNode.id);
+
+            // Preserve positioning data
+            freshNode.x = existingNode.x;
+            freshNode.y = existingNode.y;
+            freshNode.relativeX = existingNode.relativeX;
+            freshNode.relativeY = existingNode.relativeY;
+            freshNode.hasCustomPosition = existingNode.hasCustomPosition;
+            freshNode.hasRelativePosition = existingNode.hasRelativePosition;
+            freshNode.collapsed = existingNode.collapsed;
+
+            console.log(`Preserved positioning for node ${freshNode.id}:`, {
+                x: freshNode.x,
+                y: freshNode.y,
+                relativeX: freshNode.relativeX,
+                relativeY: freshNode.relativeY,
+                hasCustomPosition: freshNode.hasCustomPosition,
+                collapsed: freshNode.collapsed
+            });
+        }
+
+        // Recursively merge children
+        if (freshNode.children) {
+            freshNode.children.forEach(mergePositioningData);
+        }
+    }
+
+    // Apply positioning data to fresh mindmap
+    mergePositioningData(freshMindMapData);
+
+    console.log('Merged mindmap data with preserved positioning');
+    return freshMindMapData;
+}
+
+// Function to update existing mindmap data with fresh Linear data
+function updateMindMapWithFreshData(freshIssues, existingMindMapData, filteredIssues) {
+    console.log('Updating mindmap with fresh data');
+    console.log('Fresh issues:', freshIssues.length);
+    console.log('Filtered issues:', filteredIssues.length);
+
+    // If no existing mindmap data, create fresh
+    if (!existingMindMapData) {
+        console.log('No existing mindmap data, creating fresh');
+        return convertLinearIssuesToMindMap(filteredIssues, freshIssues);
+    }
+
+    // Merge fresh data with existing positioning
+    return mergeLinearDataWithMindMap(filteredIssues, existingMindMapData);
+}
+
 // Export functions for global use
 window.MindMapNode = MindMapNode;
 window.createMindMapData = createMindMapData;
@@ -763,3 +853,5 @@ window.toggleNodeCollapsed = toggleNodeCollapsed;
 window.convertLinearIssuesToMindMap = convertLinearIssuesToMindMap;
 window.getProjectInfoFromParent = getProjectInfoFromParent;
 window.updateNodeProjectInfo = updateNodeProjectInfo;
+window.mergeLinearDataWithMindMap = mergeLinearDataWithMindMap;
+window.updateMindMapWithFreshData = updateMindMapWithFreshData;

@@ -17,15 +17,24 @@ function initializeInteractiveMindMap(filteredIssues = null, allIssues = null) {
         console.log('Sample of filtered issues:', filteredIssues.slice(0, 3));
     }
 
-    // Convert issues to mind map data or use sample data
-    if (filteredIssues && filteredIssues.length > 0) {
-        console.log('Converting Linear issues to mind map...');
-        mindMapData = convertLinearIssuesToMindMap(filteredIssues, allIssues);
-        console.log('Mind map data created:', mindMapData);
+    // Use existing mindMapData if available (for refresh), otherwise create new
+    if (!window.mindMapData) {
+        // Convert issues to mind map data or use sample data
+        if (filteredIssues && filteredIssues.length > 0) {
+            console.log('Converting Linear issues to mind map...');
+            mindMapData = convertLinearIssuesToMindMap(filteredIssues, allIssues);
+            console.log('Mind map data created:', mindMapData);
+        } else {
+            console.log('No issues provided, using sample data');
+            mindMapData = createMindMapData();
+        }
     } else {
-        console.log('No issues provided, using sample data');
-        mindMapData = createMindMapData();
+        console.log('Using existing mindMapData from window');
+        mindMapData = window.mindMapData;
     }
+
+    // Store mindMapData globally for refresh functionality
+    window.mindMapData = mindMapData;
 
     renderInteractiveMindMap();
 }
@@ -92,6 +101,7 @@ function updateMindMapVisualization() {
         })
         .on("zoom", function() {
             currentZoomTransform = d3.event.transform;
+            window.currentZoomTransform = currentZoomTransform; // Store globally for refresh
             g.attr("transform", d3.event.transform);
         });
 
@@ -754,15 +764,24 @@ function updateMindMapVisualization() {
     // Center the view initially or restore previous zoom
     const bounds = g.node().getBBox();
     if (bounds) {
-        if (isInitialRender) {
-            // Only center on initial render
+        // Check for globally stored zoom transform first (for refresh)
+        const globalZoomTransform = window.currentZoomTransform;
+
+        if (isInitialRender && !globalZoomTransform) {
+            // Only center on initial render if no global zoom state
             const centerX = width / 2 - bounds.x - bounds.width / 2;
             const centerY = height / 2 - bounds.y - bounds.height / 2;
             currentZoomTransform = d3.zoomIdentity.translate(centerX, centerY);
+            window.currentZoomTransform = currentZoomTransform;
             svgElement.call(zoom.transform, currentZoomTransform);
             isInitialRender = false;
+        } else if (globalZoomTransform) {
+            // Restore zoom state from global variable (refresh case)
+            currentZoomTransform = globalZoomTransform;
+            svgElement.call(zoom.transform, currentZoomTransform);
+            console.log('Restored zoom state from global variable');
         } else if (currentZoomTransform) {
-            // Restore previous zoom state
+            // Restore previous zoom state (normal case)
             svgElement.call(zoom.transform, currentZoomTransform);
         }
     }
