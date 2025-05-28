@@ -113,20 +113,59 @@ function updateMindMapVisualization() {
 
     treeLayout(root);
 
-    // Apply custom positions or use tree layout positions
-    root.descendants().forEach(d => {
-        const originalNode = findNodeById(mindMapData, d.data.id);
-        if (originalNode && hasCustomPosition(originalNode)) {
-            // Use custom position
-            d.x = originalNode.x;
-            d.y = originalNode.y;
-        } else if (d.depth === 0) {
-            // Position root at center-left
-            d.x = height / 2;
-            d.y = 100;
-        }
-        // For other nodes without custom positions, tree layout positions are already applied
-    });
+    // Check if we have stored positions, if not do initial layout and store them
+    const hasStoredPositions = checkIfPositionsAreStored();
+
+    if (hasStoredPositions) {
+        // Use stored positions only - no auto-layout
+        applyStoredPositions();
+    } else {
+        // First time: use tree layout for initial positioning, then store all positions
+        // Root positioning
+        root.x = height / 2;
+        root.y = 100;
+
+        // Apply tree layout positions and then store them
+        // (tree layout positions are already applied from treeLayout(root) call above)
+    }
+
+    function checkIfPositionsAreStored() {
+        // Check if root has stored position
+        const rootNode = findNodeById(mindMapData, root.data.id);
+        return rootNode && (hasCustomPosition(rootNode) || hasRelativePosition(rootNode));
+    }
+
+    function applyStoredPositions() {
+        // Apply positions from stored data, starting with root and cascading down
+        root.descendants().forEach(d => {
+            const originalNode = findNodeById(mindMapData, d.data.id);
+
+            if (d.depth === 0) {
+                // Root node: use absolute position
+                if (originalNode && hasCustomPosition(originalNode)) {
+                    d.x = originalNode.x;
+                    d.y = originalNode.y;
+                } else {
+                    // Fallback for root
+                    d.x = height / 2;
+                    d.y = 100;
+                }
+            } else {
+                // Child nodes: calculate from relative position
+                if (originalNode && hasRelativePosition(originalNode) && d.parent) {
+                    const absolutePos = calculateAbsolutePosition(originalNode, d.parent.x, d.parent.y);
+                    if (absolutePos) {
+                        d.x = absolutePos.x;
+                        d.y = absolutePos.y;
+                    }
+                } else if (originalNode && hasCustomPosition(originalNode)) {
+                    // Fallback to absolute position if available
+                    d.x = originalNode.x;
+                    d.y = originalNode.y;
+                }
+            }
+        });
+    }
 
     // We'll calculate positions after nodes are created with actual dimensions
     // For now, just use the tree layout for vertical positioning
@@ -359,12 +398,8 @@ function updateMindMapVisualization() {
                 const parent = node.parent;
                 if (!parent) return;
 
-                // Check if this node has a custom position - if so, skip auto-positioning
-                const originalNode = findNodeById(mindMapData, node.data.id);
-                if (originalNode && hasCustomPosition(originalNode)) {
-                    console.log(`Skipping auto-positioning for ${node.data.name} - has custom position`);
-                    return;
-                }
+                // During initial layout, position all nodes using auto-layout
+                // (This function is only called during first-time positioning)
 
                 // Get actual parent node width
                 const parentNodeGroup = nodes.filter(n => n.data.id === parent.data.id);
@@ -382,7 +417,6 @@ function updateMindMapVisualization() {
                 // Child CENTER position = parent control + constant spacing + half child width
                 // This ensures the child's connection circle (at left edge) is exactly CONSTANT_SPACING from parent control
                 const newChildY = parentControlX + CONSTANT_SPACING + (childWidth / 2);
-                console.log(`Level ${level}: Repositioning ${node.data.name} from ${node.y} to ${newChildY} (parent control: ${parentControlX}, child width: ${childWidth})`);
 
                 // Update node position
                 node.y = newChildY;
@@ -399,72 +433,33 @@ function updateMindMapVisualization() {
         }
     }
 
-    // Recalculate all positions with actual node dimensions
-    recalculateAllPositions();
+    // If this is the first time (no stored positions), do initial positioning and store it
+    if (!hasStoredPositions) {
+        // Recalculate positions with actual node dimensions (only on first layout)
+        recalculateAllPositions();
 
-    // Test: Measure actual distances between +/- controls and connection circles
-    function measureConnectionDistances() {
-        const distances = [];
+        // Store all current positions as relative coordinates
+        storeAllPositionsAsRelative();
 
-        root.links().forEach(link => {
-            const sourceNode = link.source;
-            const targetNode = link.target;
-
-            // Get source node elements
-            const sourceNodeGroup = nodes.filter(n => n.data.id === sourceNode.data.id);
-            const sourceRect = sourceNodeGroup.select("rect");
-            const sourceWidth = +sourceRect.attr("data-width");
-
-            // Get target node elements
-            const targetNodeGroup = nodes.filter(n => n.data.id === targetNode.data.id);
-            const targetCircle = targetNodeGroup.select(".connection-circle");
-
-            if (!sourceRect.empty() && !targetCircle.empty()) {
-                // Calculate +/- control position (source)
-                const controlX = sourceNode.y + (sourceWidth / 2) + 5 + 12;
-
-                // Calculate connection circle position (target)
-                const circleX = targetNode.y + (+targetCircle.attr("cx"));
-
-                // Calculate horizontal distance
-                const distance = circleX - controlX;
-
-                distances.push({
-                    source: sourceNode.data.name,
-                    target: targetNode.data.name,
-                    distance: distance,
-                    controlX: controlX,
-                    circleX: circleX
-                });
-            }
-        });
-
-        console.log('Connection distances:', distances);
-
-        // Check if all distances are the same
-        const uniqueDistances = [...new Set(distances.map(d => Math.round(d.distance)))];
-        console.log('Unique distances (rounded):', uniqueDistances);
-
-        if (uniqueDistances.length === 1) {
-            console.log('✅ SUCCESS: All connections have the same distance:', uniqueDistances[0]);
-        } else {
-            console.log('❌ PROBLEM: Connections have different distances. Expected constant spacing.');
+        // Store root position as absolute
+        const rootOriginalNode = findNodeById(mindMapData, root.data.id);
+        if (rootOriginalNode) {
+            setNodeCustomPosition(rootOriginalNode, root.x, root.y);
         }
-
-        return distances;
     }
 
-    // Measure distances after a short delay to ensure rendering is complete
-    setTimeout(() => {
-        const distances = measureConnectionDistances();
+    // Function to store all current positions as relative to their parents
+    function storeAllPositionsAsRelative() {
+        root.descendants().forEach(d => {
+            const originalNode = findNodeById(mindMapData, d.data.id);
+            if (originalNode && d.parent) {
+                // Store current position relative to parent
+                storeCurrentPositionAsRelative(originalNode, d.x, d.y, d.parent.x, d.parent.y);
+            }
+        });
+    }
 
-        // Send results to test endpoint
-        fetch('/api/test-distances', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ distances })
-        }).catch(err => console.log('Could not send test results:', err));
-    }, 100);
+
 
     // Update links to connect from +/- controls to connection circles
     links.attr("d", function(d) {
@@ -553,30 +548,121 @@ function updateMindMapVisualization() {
             d3.select(this).style("cursor", "grabbing");
         })
         .on("drag", function(d) {
-            // Update the node's position using the drag event coordinates
-            d.y = d3.event.x; // event.x -> our y (horizontal)
-            d.x = d3.event.y; // event.y -> our x (vertical)
+            // Calculate the movement delta
+            const oldX = d.x;
+            const oldY = d.y;
+            const newX = d3.event.y; // event.y -> our x (vertical)
+            const newY = d3.event.x; // event.x -> our y (horizontal)
+            const deltaX = newX - oldX;
+            const deltaY = newY - oldY;
 
-            // Update the visual transform
+            // Update the dragged node's position
+            d.x = newX;
+            d.y = newY;
+
+            // Update the visual transform for the dragged node
             d3.select(this).attr("transform", `translate(${d.y},${d.x})`);
 
-            // Update links that connect to this node
-            updateLinksForNode(d);
+            // Move all descendant nodes by the same delta (hierarchical movement)
+            moveDescendants(d, deltaX, deltaY);
+
+            // Update all links that involve this node or its descendants
+            updateLinksForNodeAndDescendants(d);
         })
         .on("end", function(d) {
             // Change cursor back
             d3.select(this).style("cursor", "pointer");
 
-            // Save the custom position to the original node data
+            // Store position based on node type
             const originalNode = findNodeById(mindMapData, d.data.id);
             if (originalNode) {
-                setNodeCustomPosition(originalNode, d.x, d.y);
-                console.log(`Saved custom position for ${originalNode.name}: (${d.x}, ${d.y})`);
+                if (d.depth === 0) {
+                    // Root node: store as absolute position
+                    setNodeCustomPosition(originalNode, d.x, d.y);
+                } else {
+                    // Child node: store as relative position to parent
+                    storeCurrentPositionAsRelative(originalNode, d.x, d.y, d.parent.x, d.parent.y);
+                }
             }
+
+            // Update relative positions for all descendants
+            updateRelativePositionsForDescendants(d);
         });
 
     // Apply drag behavior to all nodes
     nodes.call(nodeDrag);
+
+    // Function to update relative positions for all descendants after a drag
+    function updateRelativePositionsForDescendants(parentNode) {
+        // Update relative positions for all descendants
+        parentNode.descendants().forEach(descendant => {
+            const originalDescendant = findNodeById(mindMapData, descendant.data.id);
+            if (originalDescendant && descendant.parent) {
+                // Store current position relative to parent
+                storeCurrentPositionAsRelative(originalDescendant, descendant.x, descendant.y, descendant.parent.x, descendant.parent.y);
+            }
+        });
+    }
+
+    // Function to move all descendants of a node by a delta
+    function moveDescendants(parentNode, deltaX, deltaY) {
+        // Get all descendants of the parent node
+        const descendants = parentNode.descendants().slice(1); // Skip the parent itself
+
+        descendants.forEach(descendant => {
+            // Update the descendant's position
+            descendant.x += deltaX;
+            descendant.y += deltaY;
+
+            // Update the visual transform for the descendant
+            const descendantNodeGroup = nodes.filter(n => n.data.id === descendant.data.id);
+            descendantNodeGroup.attr("transform", `translate(${descendant.y},${descendant.x})`);
+        });
+    }
+
+    // Function to update links for a node and all its descendants
+    function updateLinksForNodeAndDescendants(node) {
+        // Get all nodes that need link updates (the node and its descendants)
+        const nodesToUpdate = node.descendants();
+
+        // Update all links that involve any of these nodes
+        links.attr("d", function(linkData) {
+            const sourceNode = linkData.source;
+            const targetNode = linkData.target;
+
+            // Only update if this link involves one of our nodes
+            const sourceInvolved = nodesToUpdate.some(n => n.data.id === sourceNode.data.id);
+            const targetInvolved = nodesToUpdate.some(n => n.data.id === targetNode.data.id);
+
+            if (sourceInvolved || targetInvolved) {
+                // Get source node dimensions and +/- control position
+                const sourceNodeGroup = nodes.filter(node => node.data.id === sourceNode.data.id);
+                const sourceRect = sourceNodeGroup.select("rect");
+                const sourceWidth = +sourceRect.attr("data-width");
+
+                // Source point: +/- control position
+                const sourceX = sourceNode.y + (sourceWidth / 2) + 5 + 12;
+                const sourceY = sourceNode.x;
+
+                // Get target node dimensions and connection circle position
+                const targetNodeGroup = nodes.filter(node => node.data.id === targetNode.data.id);
+                const targetRect = targetNodeGroup.select("rect");
+                const targetWidth = +targetRect.attr("data-width");
+
+                // Target point: connection circle position
+                const targetX = targetNode.y - (targetWidth / 2) - 8;
+                const targetY = targetNode.x;
+
+                // Create curved path
+                const midX = (sourceX + targetX) / 2;
+
+                return `M${sourceX},${sourceY} C${midX},${sourceY} ${midX},${targetY} ${targetX},${targetY}`;
+            }
+
+            // Return the current path if this link is not involved
+            return d3.select(this).attr("d");
+        });
+    }
 
     // Function to update links when a node is dragged
     function updateLinksForNode(draggedNode) {

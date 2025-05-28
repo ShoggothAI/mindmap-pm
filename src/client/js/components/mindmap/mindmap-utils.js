@@ -12,9 +12,13 @@ class MindMapNode {
         this.children = children;
         this.collapsed = false;
         // Custom positioning properties
-        this.x = null; // Custom X position (null means use auto-layout)
-        this.y = null; // Custom Y position (null means use auto-layout)
+        this.x = null; // Absolute X position (null means use auto-layout)
+        this.y = null; // Absolute Y position (null means use auto-layout)
         this.hasCustomPosition = false; // Flag to track if node has been manually positioned
+        // Relative positioning properties (relative to parent)
+        this.relativeX = null; // X position relative to parent
+        this.relativeY = null; // Y position relative to parent
+        this.hasRelativePosition = false; // Flag to track if relative position is stored
     }
 }
 
@@ -160,6 +164,36 @@ function clearNodeCustomPosition(node) {
 // Check if a node has a custom position
 function hasCustomPosition(node) {
     return node.hasCustomPosition && node.x !== null && node.y !== null;
+}
+
+// Set relative position for a node (relative to its parent)
+function setNodeRelativePosition(node, relativeX, relativeY) {
+    node.relativeX = relativeX;
+    node.relativeY = relativeY;
+    node.hasRelativePosition = true;
+}
+
+// Calculate absolute position from relative position
+function calculateAbsolutePosition(node, parentAbsoluteX, parentAbsoluteY) {
+    if (node.hasRelativePosition && node.relativeX !== null && node.relativeY !== null) {
+        return {
+            x: parentAbsoluteX + node.relativeX,
+            y: parentAbsoluteY + node.relativeY
+        };
+    }
+    return null;
+}
+
+// Store current absolute position as relative to parent
+function storeCurrentPositionAsRelative(node, nodeAbsoluteX, nodeAbsoluteY, parentAbsoluteX, parentAbsoluteY) {
+    const relativeX = nodeAbsoluteX - parentAbsoluteX;
+    const relativeY = nodeAbsoluteY - parentAbsoluteY;
+    setNodeRelativePosition(node, relativeX, relativeY);
+}
+
+// Check if a node has a relative position
+function hasRelativePosition(node) {
+    return node.hasRelativePosition && node.relativeX !== null && node.relativeY !== null;
 }
 
 // Convert Linear issues to MindMapNode structure
