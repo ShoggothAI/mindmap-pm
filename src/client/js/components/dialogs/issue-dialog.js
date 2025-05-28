@@ -4,6 +4,53 @@
 let currentDialogNode = null;
 let dialogSaveCallback = null;
 
+// Function to populate status dropdown with actual Linear states
+function populateStatusDropdown(node) {
+    const statusSelect = document.getElementById('issue-status');
+    const teamId = node.teamId;
+
+    // Clear existing options
+    statusSelect.innerHTML = '';
+
+    if (teamId && typeof getLinearStatesForTeam === 'function') {
+        const teamStates = getLinearStatesForTeam(teamId);
+
+        if (teamStates && teamStates.length > 0) {
+            // Populate with actual Linear states
+            teamStates.forEach(state => {
+                const option = document.createElement('option');
+                option.value = state.name;
+                option.textContent = state.name;
+                statusSelect.appendChild(option);
+            });
+
+            console.log(`Populated status dropdown with ${teamStates.length} Linear states for team ${teamId}`);
+            return true;
+        }
+    }
+
+    // Fallback to default options if no Linear states available
+    console.log('Using fallback status options');
+    const defaultStates = [
+        { name: 'Backlog' },
+        { name: 'Todo' },
+        { name: 'In Progress' },
+        { name: 'In Review' },
+        { name: 'Done' },
+        { name: 'Cancelled' },
+        { name: 'Duplicate' }
+    ];
+
+    defaultStates.forEach(state => {
+        const option = document.createElement('option');
+        option.value = state.name;
+        option.textContent = state.name;
+        statusSelect.appendChild(option);
+    });
+
+    return false;
+}
+
 // Open the issue dialog with a node
 function openIssueDialog(node, onSave) {
     if (!node) return;
@@ -11,10 +58,23 @@ function openIssueDialog(node, onSave) {
     currentDialogNode = node;
     dialogSaveCallback = onSave;
 
+    // Populate status dropdown with actual Linear states first
+    populateStatusDropdown(node);
+
     // Populate form fields
     document.getElementById('issue-name').value = node.name || '';
     document.getElementById('issue-description').value = node.description || '';
-    document.getElementById('issue-status').value = node.status || 'backlog';
+
+    // Set status - use node's status, fallback to "Backlog" if it exists, otherwise leave unselected
+    const statusSelect = document.getElementById('issue-status');
+    let statusToSet = node.status;
+    if (!statusToSet) {
+        // Check if "Backlog" is available in the dropdown
+        const backlogOption = Array.from(statusSelect.options).find(option => option.value === 'Backlog');
+        statusToSet = backlogOption ? 'Backlog' : '';
+    }
+    statusSelect.value = statusToSet;
+
     document.getElementById('issue-assignee').value = node.assigneeName || '';
     document.getElementById('issue-id-display').textContent = `#${node.id}`;
 

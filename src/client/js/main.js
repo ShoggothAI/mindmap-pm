@@ -301,6 +301,11 @@ async function initializePage() {
         hideError();
         hideInfo();
 
+        // Pre-fetch Linear states for status mapping
+        if (typeof fetchLinearStates === 'function') {
+            fetchLinearStates();
+        }
+
         // Auto-fetch issues since we have a cached token
         fetchIssues();
     } else {

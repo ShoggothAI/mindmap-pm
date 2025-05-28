@@ -113,7 +113,7 @@ function addChildNode(parentNode, childName) {
         childName,
         "",
         parentNode.id,
-        "backlog",
+        "Backlog",
         []
     );
 
@@ -151,8 +151,24 @@ async function addChildNodeWithLinearSync(parentNode, issueData) {
         description: issueData.description || '',
         parentId: null, // Will be set if parent is an issue
         projectId: parentNode.projectId || null,
-        stateId: getLinearStateIdFromStatus(issueData.status || 'backlog', teamId)
+        stateId: null // Will be set below if we have a valid status
     };
+
+    // Try to set state ID - prefer provided status, fallback to "Backlog", or leave null
+    let statusToUse = issueData.status;
+    if (!statusToUse) {
+        // Check if "Backlog" is a valid state for this team
+        const teamStates = getLinearStatesForTeam(teamId);
+        const hasBacklog = teamStates && teamStates.some(state => state.name === 'Backlog');
+        statusToUse = hasBacklog ? 'Backlog' : null;
+    }
+
+    if (statusToUse) {
+        const stateId = getLinearStateIdFromStatus(statusToUse, teamId);
+        if (stateId) {
+            linearIssueData.stateId = stateId;
+        }
+    }
 
     // Set parent ID if the parent is an issue (not team or project)
     if (parentNode.nodeType === 'issue') {
@@ -199,19 +215,10 @@ async function addChildNodeWithLinearSync(parentNode, issueData) {
     }
 }
 
-// Helper function to convert Linear state to mindmap status
+// Helper function to get Linear state name (no conversion, use exact name)
 function convertLinearStateToStatus(linearState) {
-    if (!linearState) return 'backlog';
-    const stateName = linearState.name.toLowerCase();
-    const stateType = linearState.type.toLowerCase();
-
-    if (stateType === 'completed' || stateName.includes('done') || stateName.includes('completed')) {
-        return 'done';
-    } else if (stateType === 'started' || stateName.includes('progress') || stateName.includes('active')) {
-        return 'in-progress';
-    } else {
-        return 'backlog';
-    }
+    if (!linearState) return 'Backlog'; // Default fallback
+    return linearState.name; // Use exact Linear state name
 }
 
 // Update node name
@@ -219,12 +226,68 @@ function updateNodeName(node, newName) {
     node.name = newName;
 }
 
-// Update node with partial data
+// Update node with partial data (local only)
 function updateNode(node, updates) {
     if (updates.name !== undefined) node.name = updates.name;
     if (updates.description !== undefined) node.description = updates.description;
     if (updates.status !== undefined) node.status = updates.status;
     if (updates.assigneeName !== undefined) node.assigneeName = updates.assigneeName;
+}
+
+// Update node and sync changes to Linear
+async function updateNodeWithLinearSync(node, updates) {
+    // Only sync if this is an actual issue node (not team/project)
+    if (node.nodeType !== 'issue') {
+        console.log('Not syncing to Linear: node is not an issue type');
+        updateNode(node, updates);
+        return true;
+    }
+
+    try {
+        // Prepare Linear update data
+        const linearUpdateData = {};
+
+        if (updates.name !== undefined) {
+            linearUpdateData.title = updates.name;
+        }
+        if (updates.description !== undefined) {
+            linearUpdateData.description = updates.description;
+        }
+        if (updates.status !== undefined) {
+            // Get Linear state ID for exact status name
+            const stateId = getLinearStateIdFromStatus(updates.status, node.teamId);
+            if (stateId) {
+                linearUpdateData.stateId = stateId;
+            }
+        }
+
+        console.log('Updating Linear issue with data:', linearUpdateData);
+
+        // Update in Linear first
+        const updatedIssue = await updateLinearIssue(node.id, linearUpdateData);
+
+        // If Linear update succeeds, update the mindmap locally
+        updateNode(node, updates);
+
+        console.log('Successfully updated issue in Linear and mindmap');
+        return true;
+
+    } catch (error) {
+        console.error('Failed to update issue in Linear:', error);
+
+        // Ask user if they want to update locally anyway
+        const updateLocally = confirm(
+            `Failed to update issue in Linear: ${error.message}\n\n` +
+            'Do you want to update it in the mindmap anyway? ' +
+            '(This will create a mismatch between Linear and the mindmap)'
+        );
+
+        if (updateLocally) {
+            updateNode(node, updates);
+        }
+
+        return updateLocally;
+    }
 }
 
 // Delete a node with Linear sync
@@ -451,17 +514,10 @@ function convertLinearIssuesToMindMap(filteredIssues, allIssues = null) {
 
     console.log(`Processing ${issuesToProcess.length} total issues (${filteredIssues.length} filtered + ${missingParents.size} parents)`);
 
-    // Convert Linear status to our status format
+    // Use exact Linear status name (no conversion)
     function convertStatus(linearState) {
-        if (!linearState) return 'backlog';
-        const stateName = linearState.name.toLowerCase();
-        if (stateName.includes('done') || stateName.includes('completed')) {
-            return 'done';
-        } else if (stateName.includes('progress') || stateName.includes('active')) {
-            return 'in-progress';
-        } else {
-            return 'backlog';
-        }
+        if (!linearState) return 'Backlog'; // Default fallback
+        return linearState.name; // Use exact Linear state name
     }
 
     // Convert a Linear issue to MindMapNode
@@ -862,6 +918,7 @@ window.convertLinearStateToStatus = convertLinearStateToStatus;
 window.reparentNodeWithLinearSync = reparentNodeWithLinearSync;
 window.updateNodeName = updateNodeName;
 window.updateNode = updateNode;
+window.updateNodeWithLinearSync = updateNodeWithLinearSync;
 window.findNodeById = findNodeById;
 window.toggleNodeCollapsed = toggleNodeCollapsed;
 window.convertLinearIssuesToMindMap = convertLinearIssuesToMindMap;

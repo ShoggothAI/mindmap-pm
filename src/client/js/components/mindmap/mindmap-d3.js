@@ -809,9 +809,16 @@ function setSelectedNode(nodeId) {
 function openNodeDialog(nodeId) {
     const node = findNodeById(mindMapData, nodeId);
     if (node) {
-        openIssueDialog(node, function(updates) {
-            updateNode(node, updates);
-            updateMindMapVisualization();
+        openIssueDialog(node, async function(updates) {
+            try {
+                const success = await updateNodeWithLinearSync(node, updates);
+                if (success) {
+                    updateMindMapVisualization();
+                }
+            } catch (error) {
+                console.error('Failed to update node:', error);
+                alert(`Failed to update issue: ${error.message}`);
+            }
         });
     }
 }
@@ -874,9 +881,16 @@ function openNewIssueDialog(parentId) {
         id: 'temp-' + Date.now(),
         name: '',
         description: '',
-        status: 'backlog',
+        status: '', // Will be set based on available states
         nodeType: 'issue'
     };
+
+    // Set default status based on parent's team states
+    if (parent && parent.teamId && typeof getLinearStatesForTeam === 'function') {
+        const teamStates = getLinearStatesForTeam(parent.teamId);
+        const hasBacklog = teamStates && teamStates.some(state => state.name === 'Backlog');
+        tempNode.status = hasBacklog ? 'Backlog' : '';
+    }
 
     // Pre-populate project information based on parent
     if (parent && typeof getProjectInfoFromParent === 'function') {

@@ -310,23 +310,123 @@ async function deleteLinearIssue(issueId) {
     return true;
 }
 
-// Helper function to convert mindmap status to Linear state
-function getLinearStateIdFromStatus(status, teamId) {
-    // For now, we'll let Linear assign the default state based on the team's workflow
-    // In the future, this could be enhanced to map specific statuses to state IDs
-    // by fetching the team's workflow states and mapping them
-    return null; // Let Linear use the default state
+// Cache for Linear states by team
+let linearStatesCache = new Map();
+
+// GraphQL query to fetch all workflow states for teams
+const FETCH_STATES_QUERY = `
+  query {
+    teams {
+      nodes {
+        id
+        name
+        states {
+          nodes {
+            id
+            name
+            type
+            color
+          }
+        }
+      }
+    }
+  }
+`;
+
+// Function to fetch and cache Linear states
+async function fetchLinearStates() {
+    const token = await getCachedToken();
+    if (!token) {
+        console.error('No Linear API token available for fetching states');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/linear', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                query: FETCH_STATES_QUERY
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        if (data.errors) {
+            console.error('Fetch states GraphQL errors:', data.errors);
+            return;
+        }
+
+        // Cache states by team
+        if (data.data?.teams?.nodes) {
+            data.data.teams.nodes.forEach(team => {
+                if (team.states?.nodes) {
+                    linearStatesCache.set(team.id, team.states.nodes);
+                    console.log(`Cached ${team.states.nodes.length} states for team ${team.name} (${team.id})`);
+                }
+            });
+        }
+
+        console.log('Successfully fetched and cached Linear states');
+    } catch (error) {
+        console.error('Failed to fetch Linear states:', error);
+    }
+}
+
+// Helper function to get Linear state ID from exact state name
+function getLinearStateIdFromStatus(stateName, teamId) {
+    if (!teamId || !stateName) {
+        return null;
+    }
+
+    // Get states for this team
+    const teamStates = linearStatesCache.get(teamId);
+    if (!teamStates) {
+        console.log(`No cached states for team ${teamId}, fetching...`);
+        // Trigger fetch but return null for now
+        fetchLinearStates();
+        return null;
+    }
+
+    // Find exact match by state name
+    const matchingState = teamStates.find(state =>
+        state.name === stateName
+    );
+
+    if (matchingState) {
+        console.log(`Found exact state match: ${matchingState.name} (${matchingState.id})`);
+        return matchingState.id;
+    }
+
+    console.log(`No exact state match found for '${stateName}' in team ${teamId}`);
+    console.log('Available states:', teamStates.map(s => s.name));
+    return null;
+}
+
+// Helper function to get all states for a team
+function getLinearStatesForTeam(teamId) {
+    return linearStatesCache.get(teamId) || [];
 }
 
 // GraphQL mutation to update an issue in Linear
 const UPDATE_ISSUE_MUTATION = `
-  mutation IssueUpdate($id: String!, $parentId: String, $projectId: String, $teamId: String) {
+  mutation IssueUpdate($id: String!, $parentId: String, $projectId: String, $teamId: String, $title: String, $description: String, $stateId: String) {
     issueUpdate(
       id: $id,
       input: {
         parentId: $parentId
         projectId: $projectId
         teamId: $teamId
+        title: $title
+        description: $description
+        stateId: $stateId
       }
     ) {
       success
@@ -357,21 +457,90 @@ const UPDATE_ISSUE_MUTATION = `
   }
 `;
 
-// Function to update an issue in Linear (for reparenting)
+// Function to update an issue in Linear (supports all fields)
 async function updateLinearIssue(issueId, updateData) {
     const token = await getCachedToken();
     if (!token) {
         throw new Error('No Linear API token available');
     }
 
-    const variables = {
-        id: issueId,
-        parentId: updateData.parentId || null,
-        projectId: updateData.projectId || null,
-        teamId: updateData.teamId || null
-    };
+    // Only include fields that have actual values (not null/undefined)
+    const variables = { id: issueId };
+    const inputFields = {};
+
+    if (updateData.parentId !== undefined && updateData.parentId !== null) {
+        inputFields.parentId = updateData.parentId;
+    }
+    if (updateData.projectId !== undefined && updateData.projectId !== null) {
+        inputFields.projectId = updateData.projectId;
+    }
+    if (updateData.teamId !== undefined && updateData.teamId !== null) {
+        inputFields.teamId = updateData.teamId;
+    }
+    if (updateData.title !== undefined && updateData.title !== null) {
+        inputFields.title = updateData.title;
+    }
+    if (updateData.description !== undefined && updateData.description !== null) {
+        inputFields.description = updateData.description;
+    }
+    if (updateData.stateId !== undefined && updateData.stateId !== null) {
+        inputFields.stateId = updateData.stateId;
+    }
+
+    // Build dynamic GraphQL mutation based on what fields we're updating
+    const inputFieldsStr = Object.keys(inputFields).map(key => {
+        if (key === 'parentId' || key === 'projectId' || key === 'teamId' || key === 'stateId') {
+            return `${key}: $${key}`;
+        } else {
+            return `${key}: $${key}`;
+        }
+    }).join('\n        ');
+
+    const variableDefsStr = Object.keys(inputFields).map(key => {
+        return `$${key}: String`;
+    }).join(', ');
+
+    const mutation = `
+        mutation IssueUpdate($id: String!, ${variableDefsStr}) {
+            issueUpdate(
+                id: $id,
+                input: {
+                    ${inputFieldsStr}
+                }
+            ) {
+                success
+                issue {
+                    id
+                    identifier
+                    title
+                    description
+                    team {
+                        id
+                        name
+                        key
+                    }
+                    project {
+                        id
+                        name
+                    }
+                    parent {
+                        id
+                    }
+                    state {
+                        id
+                        name
+                        type
+                    }
+                }
+            }
+        }
+    `;
+
+    // Add the input field values to variables
+    Object.assign(variables, inputFields);
 
     console.log('Updating Linear issue with data:', variables);
+    console.log('Using mutation:', mutation);
 
     const response = await fetch('/api/linear', {
         method: 'POST',
@@ -380,7 +549,7 @@ async function updateLinearIssue(issueId, updateData) {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            query: UPDATE_ISSUE_MUTATION,
+            query: mutation,
             variables: variables
         })
     });
@@ -411,3 +580,5 @@ window.createLinearIssue = createLinearIssue;
 window.deleteLinearIssue = deleteLinearIssue;
 window.updateLinearIssue = updateLinearIssue;
 window.getLinearStateIdFromStatus = getLinearStateIdFromStatus;
+window.getLinearStatesForTeam = getLinearStatesForTeam;
+window.fetchLinearStates = fetchLinearStates;
