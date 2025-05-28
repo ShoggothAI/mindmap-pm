@@ -88,6 +88,13 @@
                         </div>
                     </div>
                     <div class="filter-group">
+                        <label for="search-input">Search:</label>
+                        <div class="search-input-container">
+                            <input type="text" id="search-input" placeholder="Search issue names..." oninput="handleSearchInput()" onkeypress="handleSearchKeypress(event)">
+                            <button type="button" id="search-clear" class="search-clear-btn" onclick="clearSearch()" title="Clear search">&times;</button>
+                        </div>
+                    </div>
+                    <div class="filter-group">
                         <button id="refresh-button" class="refresh-btn" onclick="refreshIssues()" title="Refresh data from Linear">
                             <span class="refresh-icon">🔄</span>
                             <span class="refresh-text">Refresh</span>
@@ -166,6 +173,11 @@
                         <option value="in-progress">In Progress</option>
                         <option value="done">Done</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label for="issue-assignee">Assignee:</label>
+                    <input type="text" id="issue-assignee" placeholder="Enter assignee name or email">
+                    <small class="field-help">Note: Assignee changes are saved locally only. Linear API assignee updates are not yet implemented.</small>
                 </div>
                 <div class="form-group project-info-section">
                     <label>📋 Project Information (Read-only):</label>

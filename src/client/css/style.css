@@ -490,7 +490,7 @@ tr:hover {
     border-radius: 6px;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     z-index: 1000;
-    max-height: 250px;
+    max-height: 400px; /* Increased from 250px to 400px */
     overflow-y: auto;
     margin-top: 2px;
 }
@@ -602,6 +602,78 @@ tr:hover {
 @keyframes spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
+}
+
+/* Field help text */
+.field-help {
+    display: block;
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-top: 4px;
+    font-style: italic;
+}
+
+/* Search input container */
+.search-input-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+/* Search input */
+#search-input {
+    padding: 6px 32px 6px 12px; /* Extra padding on right for clear button */
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    color: #374151;
+    background-color: white;
+    transition: border-color 0.2s ease;
+    min-width: 200px;
+    flex: 1;
+}
+
+#search-input:focus {
+    outline: none;
+    border-color: #3182ce;
+    box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
+}
+
+#search-input::placeholder {
+    color: #9ca3af;
+}
+
+/* Search clear button */
+.search-clear-btn {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    color: #9ca3af;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+    line-height: 1;
+    display: none; /* Hidden by default */
+}
+
+.search-clear-btn:hover {
+    color: #6b7280;
+    background-color: #f3f4f6;
+}
+
+.search-clear-btn:active {
+    color: #374151;
+    background-color: #e5e7eb;
+}
+
+/* Show clear button when input has content */
+.search-input-container.has-content .search-clear-btn {
+    display: block;
 }
 
 .tab-button {

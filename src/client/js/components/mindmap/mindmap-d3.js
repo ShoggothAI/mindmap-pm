@@ -17,8 +17,15 @@ function initializeInteractiveMindMap(filteredIssues = null, allIssues = null) {
         console.log('Sample of filtered issues:', filteredIssues.slice(0, 3));
     }
 
-    // Use existing mindMapData if available (for refresh), otherwise create new
-    if (!window.mindMapData) {
+    // Always regenerate mindmap data with current filtered issues
+    // Only preserve existing mindMapData during refresh operations
+    const isRefreshOperation = window.mindMapData && window.isRefreshing;
+
+    if (isRefreshOperation) {
+        console.log('Using existing mindMapData from refresh operation');
+        mindMapData = window.mindMapData;
+        window.isRefreshing = false; // Clear the refresh flag
+    } else {
         // Convert issues to mind map data or use sample data
         if (filteredIssues && filteredIssues.length > 0) {
             console.log('Converting Linear issues to mind map...');
@@ -28,9 +35,6 @@ function initializeInteractiveMindMap(filteredIssues = null, allIssues = null) {
             console.log('No issues provided, using sample data');
             mindMapData = createMindMapData();
         }
-    } else {
-        console.log('Using existing mindMapData from window');
-        mindMapData = window.mindMapData;
     }
 
     // Store mindMapData globally for refresh functionality

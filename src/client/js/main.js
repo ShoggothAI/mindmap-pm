@@ -45,8 +45,20 @@ async function fetchIssues() {
         // Populate filter dropdowns with unique values from all issues
         populateFilters(allIssues);
 
+        // Initialize search text from input field
+        const searchInput = document.getElementById('search-input');
+        if (searchInput) {
+            searchText = searchInput.value.trim().toLowerCase();
+            updateSearchClearButton();
+        }
+
         // Initialize filtered issues to all issues
         filteredIssues = [...allIssues];
+
+        // Apply any existing search filter
+        if (searchText) {
+            applyFilters();
+        }
 
         // Display only the first 20 issues
         const issuesToDisplay = filteredIssues.slice(0, DISPLAY_LIMIT);
@@ -358,6 +370,7 @@ function switchTab(tabName, event) {
 // Store selected filter values
 let selectedStatuses = new Set();
 let selectedAssignees = new Set();
+let searchText = '';
 
 // Function to populate filter dropdowns with unique values and counts from issues
 function populateFilters(issues) {
@@ -482,6 +495,8 @@ function toggleSelectAll(filterType) {
 
 // Function to handle individual option change
 function handleOptionChange(filterType, value) {
+    console.log('📊 Filter change:', filterType, value);
+
     // Find checkbox by iterating through options to avoid CSS selector issues with special characters
     const optionCheckboxes = document.querySelectorAll(`#${filterType}-options-list input[type="checkbox"]`);
     let checkbox = null;
@@ -492,7 +507,10 @@ function handleOptionChange(filterType, value) {
         }
     }
 
-    if (!checkbox) return;
+    if (!checkbox) {
+        console.log('❌ Checkbox not found for:', { filterType, value });
+        return;
+    }
 
     if (filterType === 'status') {
         if (checkbox.checked) {
@@ -548,24 +566,77 @@ function updateSelectedText(filterType) {
     }
 }
 
+// Function to update search clear button visibility
+function updateSearchClearButton() {
+    const searchInput = document.getElementById('search-input');
+    const searchContainer = document.querySelector('.search-input-container');
+
+    if (searchInput && searchContainer) {
+        if (searchInput.value.trim()) {
+            searchContainer.classList.add('has-content');
+        } else {
+            searchContainer.classList.remove('has-content');
+        }
+    }
+}
+
+// Function to handle search input changes
+function handleSearchInput() {
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+        const newSearchText = searchInput.value.trim().toLowerCase();
+        searchText = newSearchText;
+        console.log('🔍 Search updated:', searchText);
+        updateSearchClearButton();
+        applyFilters();
+    }
+}
+
+// Function to clear search
+function clearSearch() {
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+        searchInput.value = '';
+        searchText = '';
+        updateSearchClearButton();
+        console.log('Search cleared');
+        applyFilters();
+        searchInput.focus(); // Keep focus on input for better UX
+    }
+}
+
+// Function to handle Enter key press in search input
+function handleSearchKeypress(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        handleSearchInput();
+    }
+}
+
 // Function to apply filters and update displays
 function applyFilters() {
+    console.log('🔎 APPLY FILTERS:', {
+        allIssues: allIssues.length,
+        search: searchText,
+        statuses: selectedStatuses.size,
+        assignees: selectedAssignees.size
+    });
+
     // Filter the issues based on selected criteria
+    const beforeCount = allIssues.length;
     filteredIssues = allIssues.filter(issue => {
         const issueStatus = issue.state?.name || 'Unknown';
         const issueAssignee = issue.assignee?.name || 'Unassigned';
+        const issueTitle = (issue.title || '').toLowerCase();
 
         const statusMatch = selectedStatuses.size === 0 || selectedStatuses.has(issueStatus);
         const assigneeMatch = selectedAssignees.size === 0 || selectedAssignees.has(issueAssignee);
+        const searchMatch = searchText === '' || issueTitle.includes(searchText);
 
-        return statusMatch && assigneeMatch;
+        return statusMatch && assigneeMatch && searchMatch;
     });
 
-    console.log(`Filtered ${allIssues.length} issues down to ${filteredIssues.length} issues`);
-    console.log('Filter criteria:', {
-        statuses: Array.from(selectedStatuses),
-        assignees: Array.from(selectedAssignees)
-    });
+    console.log('📊 FILTER RESULT:', beforeCount, '→', filteredIssues.length);
 
     // Update table view
     const issuesToDisplay = filteredIssues.slice(0, DISPLAY_LIMIT);
@@ -573,8 +644,12 @@ function applyFilters() {
 
     // Update mindmap view if it's currently active
     const mindmapView = document.getElementById('interactive-mindmap-view');
-    if (mindmapView && mindmapView.classList.contains('active')) {
-        console.log('Updating mindmap with filtered issues');
+    const isActive = mindmapView && mindmapView.classList.contains('active');
+    console.log('🗺 Mindmap active:', isActive);
+
+    if (isActive) {
+        console.log('🔄 Updating mindmap with', filteredIssues.length, 'issues');
+        window.isRefreshing = false; // Clear refresh flag for normal filtering
         initializeInteractiveMindMap(filteredIssues, allIssues);
     }
 }
@@ -625,17 +700,28 @@ async function refreshIssues() {
         filteredIssues = allIssues.filter(issue => {
             const issueStatus = issue.state?.name || 'Unknown';
             const issueAssignee = issue.assignee?.name || 'Unassigned';
+            const issueTitle = (issue.title || '').toLowerCase();
 
             const statusMatch = selectedStatuses.size === 0 || selectedStatuses.has(issueStatus);
             const assigneeMatch = selectedAssignees.size === 0 || selectedAssignees.has(issueAssignee);
+            const searchMatch = searchText === '' || issueTitle.includes(searchText);
 
-            return statusMatch && assigneeMatch;
+            return statusMatch && assigneeMatch && searchMatch;
         });
 
         console.log(`Applied filters: ${allIssues.length} -> ${filteredIssues.length} issues`);
 
         // Update filter dropdowns with new data (but preserve selections)
         populateFilters(allIssues);
+
+        // Restore search input value and clear button state
+        const searchInput = document.getElementById('search-input');
+        if (searchInput) {
+            if (searchText) {
+                searchInput.value = searchText;
+            }
+            updateSearchClearButton();
+        }
 
         // Update table view
         const issuesToDisplay = filteredIssues.slice(0, DISPLAY_LIMIT);
@@ -650,9 +736,11 @@ async function refreshIssues() {
             if (currentMindMapData && typeof updateMindMapWithFreshData === 'function') {
                 console.log('Using merge function to preserve mindmap positioning');
                 window.mindMapData = updateMindMapWithFreshData(allIssues, currentMindMapData, filteredIssues);
+                window.isRefreshing = true; // Set refresh flag
             } else {
                 console.log('No existing mindmap data or merge function, creating fresh');
                 window.mindMapData = null; // Reset to trigger fresh creation
+                window.isRefreshing = false;
             }
 
             // Restore zoom state

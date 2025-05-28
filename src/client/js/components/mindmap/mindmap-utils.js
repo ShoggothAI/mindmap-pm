@@ -224,6 +224,7 @@ function updateNode(node, updates) {
     if (updates.name !== undefined) node.name = updates.name;
     if (updates.description !== undefined) node.description = updates.description;
     if (updates.status !== undefined) node.status = updates.status;
+    if (updates.assigneeName !== undefined) node.assigneeName = updates.assigneeName;
 }
 
 // Delete a node with Linear sync
@@ -484,6 +485,10 @@ function convertLinearIssuesToMindMap(filteredIssues, allIssues = null) {
         node.teamName = issue.team?.name || issue.team?.key || null;
         node.projectName = issue.project?.name || null;
         node.projectId = issue.project?.id || null;
+
+        // Set assignee information
+        node.assigneeName = issue.assignee?.name || null;
+        node.assigneeEmail = issue.assignee?.email || null;
 
         return node;
     }
@@ -767,7 +772,10 @@ function mergeLinearDataWithMindMap(freshIssues, existingMindMapData) {
                 relativeY: node.relativeY,
                 hasCustomPosition: node.hasCustomPosition,
                 hasRelativePosition: node.hasRelativePosition,
-                collapsed: node.collapsed
+                collapsed: node.collapsed,
+                // Preserve assignee data
+                assigneeName: node.assigneeName,
+                assigneeEmail: node.assigneeEmail
             });
         }
         if (node.children) {
@@ -797,6 +805,12 @@ function mergeLinearDataWithMindMap(freshIssues, existingMindMapData) {
             freshNode.hasCustomPosition = existingNode.hasCustomPosition;
             freshNode.hasRelativePosition = existingNode.hasRelativePosition;
             freshNode.collapsed = existingNode.collapsed;
+
+            // Preserve assignee information if it exists in existing node but not in fresh data
+            if (existingNode.assigneeName && !freshNode.assigneeName) {
+                freshNode.assigneeName = existingNode.assigneeName;
+                freshNode.assigneeEmail = existingNode.assigneeEmail;
+            }
 
             console.log(`Preserved positioning for node ${freshNode.id}:`, {
                 x: freshNode.x,

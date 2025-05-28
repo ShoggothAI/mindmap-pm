@@ -15,6 +15,7 @@ function openIssueDialog(node, onSave) {
     document.getElementById('issue-name').value = node.name || '';
     document.getElementById('issue-description').value = node.description || '';
     document.getElementById('issue-status').value = node.status || 'backlog';
+    document.getElementById('issue-assignee').value = node.assigneeName || '';
     document.getElementById('issue-id-display').textContent = `#${node.id}`;
 
     // Populate project information fields (read-only)
@@ -91,7 +92,8 @@ function saveIssueDialog() {
     const updates = {
         name: document.getElementById('issue-name').value,
         description: document.getElementById('issue-description').value,
-        status: document.getElementById('issue-status').value
+        status: document.getElementById('issue-status').value,
+        assigneeName: document.getElementById('issue-assignee').value
     };
 
     // Call the save callback
