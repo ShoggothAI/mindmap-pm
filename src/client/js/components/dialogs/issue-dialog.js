@@ -51,6 +51,37 @@ function populateStatusDropdown(node) {
     return false;
 }
 
+// Function to populate assignee dropdown with Linear users
+function populateAssigneeDropdown() {
+    const assigneeSelect = document.getElementById('issue-assignee');
+
+    // Clear existing options except "No assignee"
+    assigneeSelect.innerHTML = '<option value="">No assignee</option>';
+
+    if (typeof getAllLinearUsers === 'function') {
+        const users = getAllLinearUsers();
+
+        if (users && users.length > 0) {
+            // Sort users by display name
+            users.sort((a, b) => (a.displayName || a.name).localeCompare(b.displayName || b.name));
+
+            // Populate with Linear users
+            users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = `${user.displayName || user.name}${user.email ? ` (${user.email})` : ''}`;
+                assigneeSelect.appendChild(option);
+            });
+
+            console.log(`Populated assignee dropdown with ${users.length} Linear users`);
+            return true;
+        }
+    }
+
+    console.log('No Linear users available for assignee dropdown');
+    return false;
+}
+
 // Open the issue dialog with a node
 function openIssueDialog(node, onSave) {
     if (!node) return;
@@ -60,6 +91,9 @@ function openIssueDialog(node, onSave) {
 
     // Populate status dropdown with actual Linear states first
     populateStatusDropdown(node);
+
+    // Populate assignee dropdown with Linear users
+    populateAssigneeDropdown();
 
     // Populate form fields
     document.getElementById('issue-name').value = node.name || '';
@@ -75,7 +109,24 @@ function openIssueDialog(node, onSave) {
     }
     statusSelect.value = statusToSet;
 
-    document.getElementById('issue-assignee').value = node.assigneeName || '';
+    // Set assignee - try to match by assignee ID first, then by name
+    const assigneeSelect = document.getElementById('issue-assignee');
+    let assigneeToSet = '';
+
+    if (node.assigneeId) {
+        // Try to find by ID first
+        assigneeToSet = node.assigneeId;
+    } else if (node.assigneeName) {
+        // Try to find by name if no ID available
+        if (typeof getLinearUserByName === 'function') {
+            const user = getLinearUserByName(node.assigneeName);
+            if (user) {
+                assigneeToSet = user.id;
+            }
+        }
+    }
+
+    assigneeSelect.value = assigneeToSet;
     document.getElementById('issue-id-display').textContent = `#${node.id}`;
 
     // Apply status colors to the select dropdown
@@ -152,11 +203,23 @@ function closeIssueDialog() {
 function saveIssueDialog() {
     if (!currentDialogNode || !dialogSaveCallback) return;
 
+    // Get assignee information
+    const assigneeId = document.getElementById('issue-assignee').value;
+    let assigneeName = '';
+
+    if (assigneeId && typeof getLinearUserById === 'function') {
+        const user = getLinearUserById(assigneeId);
+        if (user) {
+            assigneeName = user.displayName || user.name;
+        }
+    }
+
     const updates = {
         name: document.getElementById('issue-name').value,
         description: document.getElementById('issue-description').value,
         status: document.getElementById('issue-status').value,
-        assigneeName: document.getElementById('issue-assignee').value
+        assigneeId: assigneeId,
+        assigneeName: assigneeName
     };
 
     // Call the save callback

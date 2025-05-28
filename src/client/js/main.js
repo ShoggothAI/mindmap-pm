@@ -306,6 +306,11 @@ async function initializePage() {
             fetchLinearStates();
         }
 
+        // Pre-fetch Linear users for assignee dropdown
+        if (typeof fetchLinearUsers === 'function') {
+            fetchLinearUsers();
+        }
+
         // Auto-fetch issues since we have a cached token
         fetchIssues();
     } else {

@@ -180,8 +180,10 @@
                 </div>
                 <div class="form-group">
                     <label for="issue-assignee">Assignee:</label>
-                    <input type="text" id="issue-assignee" placeholder="Enter assignee name or email">
-                    <small class="field-help">Note: Assignee changes are saved locally only. Linear API assignee updates are not yet implemented.</small>
+                    <select id="issue-assignee" class="assignee-select">
+                        <option value="">No assignee</option>
+                    </select>
+                    <small class="field-help">Assignee changes will be synchronized with Linear API.</small>
                 </div>
                 <div class="form-group project-info-section">
                     <label>📋 Project Information (Read-only):</label>

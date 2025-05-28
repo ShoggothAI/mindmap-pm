@@ -26,6 +26,7 @@ const ISSUES_QUERY = `
           type
         }
         assignee {
+          id
           name
           email
         }
@@ -313,6 +314,9 @@ async function deleteLinearIssue(issueId) {
 // Cache for Linear states by team
 let linearStatesCache = new Map();
 
+// Cache for Linear users
+let linearUsersCache = new Map();
+
 // GraphQL query to fetch all workflow states for teams
 const FETCH_STATES_QUERY = `
   query {
@@ -328,6 +332,21 @@ const FETCH_STATES_QUERY = `
             color
           }
         }
+      }
+    }
+  }
+`;
+
+// GraphQL query to fetch all users
+const FETCH_USERS_QUERY = `
+  query {
+    users {
+      nodes {
+        id
+        name
+        email
+        displayName
+        active
       }
     }
   }
@@ -378,6 +397,100 @@ async function fetchLinearStates() {
     } catch (error) {
         console.error('Failed to fetch Linear states:', error);
     }
+}
+
+// Function to fetch and cache Linear users
+async function fetchLinearUsers() {
+    const token = await getCachedToken();
+    if (!token) {
+        console.error('No Linear API token available for fetching users');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/linear', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                query: FETCH_USERS_QUERY
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        if (data.errors) {
+            console.error('Fetch users GraphQL errors:', data.errors);
+            return;
+        }
+
+        // Cache users by ID and create lookup maps
+        if (data.data?.users?.nodes) {
+            const users = data.data.users.nodes.filter(user => user.active); // Only cache active users
+
+            // Clear existing cache
+            linearUsersCache.clear();
+
+            // Cache users by ID
+            users.forEach(user => {
+                linearUsersCache.set(user.id, {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    displayName: user.displayName || user.name
+                });
+            });
+
+            console.log(`Cached ${users.length} active Linear users`);
+        }
+
+        console.log('Successfully fetched and cached Linear users');
+    } catch (error) {
+        console.error('Failed to fetch Linear users:', error);
+    }
+}
+
+// Helper function to get all cached Linear users
+function getAllLinearUsers() {
+    return Array.from(linearUsersCache.values());
+}
+
+// Helper function to get Linear user by ID
+function getLinearUserById(userId) {
+    return linearUsersCache.get(userId);
+}
+
+// Helper function to find Linear user by email
+function getLinearUserByEmail(email) {
+    if (!email) return null;
+
+    for (const user of linearUsersCache.values()) {
+        if (user.email && user.email.toLowerCase() === email.toLowerCase()) {
+            return user;
+        }
+    }
+    return null;
+}
+
+// Helper function to find Linear user by name
+function getLinearUserByName(name) {
+    if (!name) return null;
+
+    for (const user of linearUsersCache.values()) {
+        if (user.name && user.name.toLowerCase() === name.toLowerCase()) {
+            return user;
+        }
+        if (user.displayName && user.displayName.toLowerCase() === name.toLowerCase()) {
+            return user;
+        }
+    }
+    return null;
 }
 
 // Helper function to get Linear state ID from exact state name
@@ -486,10 +599,13 @@ async function updateLinearIssue(issueId, updateData) {
     if (updateData.stateId !== undefined && updateData.stateId !== null) {
         inputFields.stateId = updateData.stateId;
     }
+    if (updateData.assigneeId !== undefined) {
+        inputFields.assigneeId = updateData.assigneeId;
+    }
 
     // Build dynamic GraphQL mutation based on what fields we're updating
     const inputFieldsStr = Object.keys(inputFields).map(key => {
-        if (key === 'parentId' || key === 'projectId' || key === 'teamId' || key === 'stateId') {
+        if (key === 'parentId' || key === 'projectId' || key === 'teamId' || key === 'stateId' || key === 'assigneeId') {
             return `${key}: $${key}`;
         } else {
             return `${key}: $${key}`;
@@ -530,6 +646,11 @@ async function updateLinearIssue(issueId, updateData) {
                         id
                         name
                         type
+                    }
+                    assignee {
+                        id
+                        name
+                        email
                     }
                 }
             }
@@ -582,3 +703,8 @@ window.updateLinearIssue = updateLinearIssue;
 window.getLinearStateIdFromStatus = getLinearStateIdFromStatus;
 window.getLinearStatesForTeam = getLinearStatesForTeam;
 window.fetchLinearStates = fetchLinearStates;
+window.fetchLinearUsers = fetchLinearUsers;
+window.getAllLinearUsers = getAllLinearUsers;
+window.getLinearUserById = getLinearUserById;
+window.getLinearUserByEmail = getLinearUserByEmail;
+window.getLinearUserByName = getLinearUserByName;

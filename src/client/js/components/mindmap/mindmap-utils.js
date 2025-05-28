@@ -231,6 +231,7 @@ function updateNode(node, updates) {
     if (updates.name !== undefined) node.name = updates.name;
     if (updates.description !== undefined) node.description = updates.description;
     if (updates.status !== undefined) node.status = updates.status;
+    if (updates.assigneeId !== undefined) node.assigneeId = updates.assigneeId;
     if (updates.assigneeName !== undefined) node.assigneeName = updates.assigneeName;
 }
 
@@ -259,6 +260,9 @@ async function updateNodeWithLinearSync(node, updates) {
             if (stateId) {
                 linearUpdateData.stateId = stateId;
             }
+        }
+        if (updates.assigneeId !== undefined) {
+            linearUpdateData.assigneeId = updates.assigneeId;
         }
 
         console.log('Updating Linear issue with data:', linearUpdateData);
@@ -543,6 +547,7 @@ function convertLinearIssuesToMindMap(filteredIssues, allIssues = null) {
         node.projectId = issue.project?.id || null;
 
         // Set assignee information
+        node.assigneeId = issue.assignee?.id || null;
         node.assigneeName = issue.assignee?.name || null;
         node.assigneeEmail = issue.assignee?.email || null;
 
@@ -830,6 +835,7 @@ function mergeLinearDataWithMindMap(freshIssues, existingMindMapData) {
                 hasRelativePosition: node.hasRelativePosition,
                 collapsed: node.collapsed,
                 // Preserve assignee data
+                assigneeId: node.assigneeId,
                 assigneeName: node.assigneeName,
                 assigneeEmail: node.assigneeEmail
             });
@@ -863,6 +869,9 @@ function mergeLinearDataWithMindMap(freshIssues, existingMindMapData) {
             freshNode.collapsed = existingNode.collapsed;
 
             // Preserve assignee information if it exists in existing node but not in fresh data
+            if (existingNode.assigneeId && !freshNode.assigneeId) {
+                freshNode.assigneeId = existingNode.assigneeId;
+            }
             if (existingNode.assigneeName && !freshNode.assigneeName) {
                 freshNode.assigneeName = existingNode.assigneeName;
                 freshNode.assigneeEmail = existingNode.assigneeEmail;
