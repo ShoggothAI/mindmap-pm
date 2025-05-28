@@ -103,15 +103,7 @@ function saveIssueDialog() {
     closeIssueDialog();
 }
 
-// Get status color for styling
-function getStatusColor(status) {
-    switch (status) {
-        case 'done': return '#10B981'; // green
-        case 'in-progress': return '#3B82F6'; // blue
-        case 'backlog': return '#6B7280'; // gray
-        default: return '#6B7280';
-    }
-}
+// Status colors are now handled by the global color map in status-colors.js
 
 // Get status display text
 function getStatusDisplayText(status) {
@@ -151,5 +143,5 @@ document.querySelector('.dialog-content').addEventListener('click', function(eve
 window.openIssueDialog = openIssueDialog;
 window.closeIssueDialog = closeIssueDialog;
 window.saveIssueDialog = saveIssueDialog;
-window.getStatusColor = getStatusColor;
 window.getStatusDisplayText = getStatusDisplayText;
+// Note: getStatusColor is now provided by status-colors.js

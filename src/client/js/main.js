@@ -420,12 +420,44 @@ function populateMultiSelectOptions(filterType, counts) {
         const optionItem = document.createElement('div');
         optionItem.className = 'option-item';
 
+        // Add status-specific styling for status filter
+        if (filterType === 'status') {
+            optionItem.classList.add('status-option');
+            optionItem.setAttribute('data-status', value.toLowerCase());
+        }
+
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.id = `${filterType}-${value.replace(/\s+/g, '-').toLowerCase()}`;
         checkbox.value = value;
         checkbox.checked = true; // Initially all selected
         checkbox.onchange = () => handleOptionChange(filterType, value);
+
+        // Apply status colors dynamically for status filter
+        if (filterType === 'status') {
+            console.log('Applying colors for status:', value);
+
+            if (typeof getStatusColor === 'function') {
+                const statusColor = getStatusColor(value);
+                console.log('Status color for', value, ':', statusColor);
+
+                // Apply the colors using CSS
+                const style = document.createElement('style');
+                style.textContent = `
+                    #${checkbox.id}:checked {
+                        background-color: ${statusColor} !important;
+                        border-color: ${statusColor} !important;
+                    }
+                    #${checkbox.id}:not(:checked) {
+                        border-color: ${statusColor} !important;
+                    }
+                `;
+                document.head.appendChild(style);
+                console.log('Applied CSS for checkbox:', checkbox.id);
+            } else {
+                console.error('getStatusColor function not available!');
+            }
+        }
 
         const label = document.createElement('label');
         label.htmlFor = checkbox.id;

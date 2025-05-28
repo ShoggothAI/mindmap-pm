@@ -222,7 +222,11 @@ function updateMindMapVisualization() {
                 return d.depth === 0 ? "#8B5CF6" : "#E0E7FF"; // Normal colors
             }
         })
-        .style("stroke", d => getStatusColor(d.data.status))
+        .style("stroke", d => {
+            const color = getStatusColor(d.data.status);
+            console.log('Mindmap node color for status', d.data.status, ':', color);
+            return color;
+        })
         .style("stroke-width", d => d.data.id === selectedNodeId ? 3 : 3)
         .each(function(d) {
             const text = d.data.name || "New Issue";
@@ -239,7 +243,6 @@ function updateMindMapVisualization() {
             let bbox;
             try {
                 bbox = tempText.node().getBBox();
-                console.log('Text:', text, 'BBox:', bbox);
             } catch (e) {
                 console.error('Error getting bbox:', e);
                 bbox = null;
