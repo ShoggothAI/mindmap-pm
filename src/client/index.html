@@ -42,10 +42,52 @@
         <div id="error-message" class="error hidden" style="display: none !important;"></div>
 
         <div id="results-section" class="results-section hidden">
-            <!-- Tab Navigation -->
+            <!-- Tab Navigation with Filters -->
             <div class="tab-navigation">
-                <button class="tab-button active" onclick="switchTab('table', event)">Table View</button>
-                <button class="tab-button" onclick="switchTab('interactive-mindmap', event)">Interactive Mind Map</button>
+                <div class="tab-buttons">
+                    <button class="tab-button active" onclick="switchTab('table', event)">Table View</button>
+                    <button class="tab-button" onclick="switchTab('interactive-mindmap', event)">Interactive Mind Map</button>
+                </div>
+                <div class="filter-widgets">
+                    <div class="filter-group">
+                        <label>Status:</label>
+                        <div class="multi-select-dropdown" id="status-filter">
+                            <div class="multi-select-button" onclick="toggleDropdown('status-filter')">
+                                <span class="selected-text">All Statuses</span>
+                                <span class="dropdown-arrow">▼</span>
+                            </div>
+                            <div class="multi-select-options" style="display: none;">
+                                <div class="option-item select-all">
+                                    <input type="checkbox" id="status-select-all" onchange="toggleSelectAll('status')">
+                                    <label for="status-select-all">Select All</label>
+                                </div>
+                                <div class="options-divider"></div>
+                                <div class="options-list" id="status-options-list">
+                                    <!-- Options will be populated dynamically -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <label>Assignee:</label>
+                        <div class="multi-select-dropdown" id="assignee-filter">
+                            <div class="multi-select-button" onclick="toggleDropdown('assignee-filter')">
+                                <span class="selected-text">All Assignees</span>
+                                <span class="dropdown-arrow">▼</span>
+                            </div>
+                            <div class="multi-select-options" style="display: none;">
+                                <div class="option-item select-all">
+                                    <input type="checkbox" id="assignee-select-all" onchange="toggleSelectAll('assignee')">
+                                    <label for="assignee-select-all">Select All</label>
+                                </div>
+                                <div class="options-divider"></div>
+                                <div class="options-list" id="assignee-options-list">
+                                    <!-- Options will be populated dynamically -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Table View -->

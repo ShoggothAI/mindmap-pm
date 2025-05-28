@@ -1,5 +1,6 @@
 // Store all fetched issues
 let allIssues = [];
+let filteredIssues = [];
 const DISPLAY_LIMIT = 20;
 
 // Main function to fetch issues from Linear GraphQL API
@@ -41,9 +42,15 @@ async function fetchIssues() {
         // Hide any error messages since fetch was successful
         hideError();
 
+        // Populate filter dropdowns with unique values from all issues
+        populateFilters(allIssues);
+
+        // Initialize filtered issues to all issues
+        filteredIssues = [...allIssues];
+
         // Display only the first 20 issues
-        const issuesToDisplay = allIssues.slice(0, DISPLAY_LIMIT);
-        displayIssues(issuesToDisplay, allIssues.length);
+        const issuesToDisplay = filteredIssues.slice(0, DISPLAY_LIMIT);
+        displayIssues(issuesToDisplay, filteredIssues.length);
 
         // Switch to Interactive Mind Map tab after issues are loaded
         console.log('Issues loaded successfully, switching to Interactive Mind Map tab');
@@ -85,12 +92,20 @@ function displayIssues(issues, totalCount = null) {
     tbody.innerHTML = '';
 
     if (issues.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="no-data">No issues found</td></tr>';
+        const noDataMessage = totalCount === 0 ? 'No issues found' : 'No issues match the current filters';
+        tbody.innerHTML = `<tr><td colspan="8" class="no-data">${noDataMessage}</td></tr>`;
     } else {
         issues.forEach(issue => {
             const row = createIssueRow(issue);
             tbody.appendChild(row);
         });
+
+        // Show count information if we're displaying a subset
+        if (totalCount && totalCount > issues.length) {
+            const countRow = document.createElement('tr');
+            countRow.innerHTML = `<td colspan="8" class="count-info">Showing ${issues.length} of ${totalCount} issues</td>`;
+            tbody.appendChild(countRow);
+        }
     }
 
     showResults();
@@ -332,13 +347,249 @@ function switchTab(tabName, event) {
     // If switching to interactive mindmap tab, render the interactive mindmap
     if (tabName === 'interactive-mindmap') {
         console.log('Switching to interactive mindmap tab');
-        console.log('allIssues at switch time:', allIssues ? allIssues.length : 'null/undefined', 'issues');
-        if (allIssues && allIssues.length > 0) {
-            console.log('Sample issue:', allIssues[0]);
+        console.log('filteredIssues at switch time:', filteredIssues ? filteredIssues.length : 'null/undefined', 'issues');
+        if (filteredIssues && filteredIssues.length > 0) {
+            console.log('Sample issue:', filteredIssues[0]);
         }
-        initializeInteractiveMindMap(allIssues);
+        initializeInteractiveMindMap(filteredIssues);
     }
 }
+
+// Store selected filter values
+let selectedStatuses = new Set();
+let selectedAssignees = new Set();
+
+// Function to populate filter dropdowns with unique values and counts from issues
+function populateFilters(issues) {
+    // Count occurrences of each status and assignee
+    const statusCounts = {};
+    const assigneeCounts = {};
+
+    issues.forEach(issue => {
+        const status = issue.state?.name || 'Unknown';
+        const assignee = issue.assignee?.name || 'Unassigned';
+
+        statusCounts[status] = (statusCounts[status] || 0) + 1;
+        assigneeCounts[assignee] = (assigneeCounts[assignee] || 0) + 1;
+    });
+
+    // Populate status filter
+    populateMultiSelectOptions('status', statusCounts);
+
+    // Populate assignee filter
+    populateMultiSelectOptions('assignee', assigneeCounts);
+
+    // Initialize all items as selected
+    selectedStatuses = new Set(Object.keys(statusCounts));
+    selectedAssignees = new Set(Object.keys(assigneeCounts));
+
+    // Update checkboxes to reflect initial state
+    updateCheckboxStates('status');
+    updateCheckboxStates('assignee');
+
+    // Update button text
+    updateSelectedText('status');
+    updateSelectedText('assignee');
+}
+
+// Function to populate options for a multi-select dropdown
+function populateMultiSelectOptions(filterType, counts) {
+    const optionsList = document.getElementById(`${filterType}-options-list`);
+    optionsList.innerHTML = '';
+
+    // Sort by count (descending) then by name
+    const sortedEntries = Object.entries(counts).sort((a, b) => {
+        if (b[1] !== a[1]) return b[1] - a[1]; // Sort by count descending
+        return a[0].localeCompare(b[0]); // Then by name ascending
+    });
+
+    sortedEntries.forEach(([value, count]) => {
+        const optionItem = document.createElement('div');
+        optionItem.className = 'option-item';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `${filterType}-${value.replace(/\s+/g, '-').toLowerCase()}`;
+        checkbox.value = value;
+        checkbox.checked = true; // Initially all selected
+        checkbox.onchange = () => handleOptionChange(filterType, value);
+
+        const label = document.createElement('label');
+        label.htmlFor = checkbox.id;
+        label.innerHTML = `
+            <span>${value}</span>
+            <span class="option-count">${count}</span>
+        `;
+
+        optionItem.appendChild(checkbox);
+        optionItem.appendChild(label);
+        optionsList.appendChild(optionItem);
+    });
+}
+
+// Function to toggle dropdown visibility
+function toggleDropdown(dropdownId) {
+    const dropdown = document.getElementById(dropdownId);
+    const options = dropdown.querySelector('.multi-select-options');
+    const isOpen = options.style.display !== 'none';
+
+    // Close all other dropdowns first
+    document.querySelectorAll('.multi-select-options').forEach(opt => {
+        opt.style.display = 'none';
+    });
+    document.querySelectorAll('.multi-select-dropdown').forEach(dd => {
+        dd.classList.remove('open');
+    });
+
+    // Toggle current dropdown
+    if (!isOpen) {
+        options.style.display = 'block';
+        dropdown.classList.add('open');
+    }
+}
+
+// Function to handle select all/none toggle
+function toggleSelectAll(filterType) {
+    const selectAllCheckbox = document.getElementById(`${filterType}-select-all`);
+    const isChecked = selectAllCheckbox.checked;
+
+    // Get all option checkboxes
+    const optionCheckboxes = document.querySelectorAll(`#${filterType}-options-list input[type="checkbox"]`);
+
+    // Update all checkboxes
+    optionCheckboxes.forEach(checkbox => {
+        checkbox.checked = isChecked;
+    });
+
+    // Update selected sets
+    if (filterType === 'status') {
+        if (isChecked) {
+            optionCheckboxes.forEach(cb => selectedStatuses.add(cb.value));
+        } else {
+            selectedStatuses.clear();
+        }
+    } else {
+        if (isChecked) {
+            optionCheckboxes.forEach(cb => selectedAssignees.add(cb.value));
+        } else {
+            selectedAssignees.clear();
+        }
+    }
+
+    updateSelectedText(filterType);
+    applyFilters();
+}
+
+// Function to handle individual option change
+function handleOptionChange(filterType, value) {
+    // Find checkbox by iterating through options to avoid CSS selector issues with special characters
+    const optionCheckboxes = document.querySelectorAll(`#${filterType}-options-list input[type="checkbox"]`);
+    let checkbox = null;
+    for (let cb of optionCheckboxes) {
+        if (cb.value === value) {
+            checkbox = cb;
+            break;
+        }
+    }
+
+    if (!checkbox) return;
+
+    if (filterType === 'status') {
+        if (checkbox.checked) {
+            selectedStatuses.add(value);
+        } else {
+            selectedStatuses.delete(value);
+        }
+    } else {
+        if (checkbox.checked) {
+            selectedAssignees.add(value);
+        } else {
+            selectedAssignees.delete(value);
+        }
+    }
+
+    updateCheckboxStates(filterType);
+    updateSelectedText(filterType);
+    applyFilters();
+}
+
+// Function to update select all checkbox state
+function updateCheckboxStates(filterType) {
+    const selectAllCheckbox = document.getElementById(`${filterType}-select-all`);
+    const optionCheckboxes = document.querySelectorAll(`#${filterType}-options-list input[type="checkbox"]`);
+    const checkedCount = document.querySelectorAll(`#${filterType}-options-list input[type="checkbox"]:checked`).length;
+
+    if (checkedCount === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    } else if (checkedCount === optionCheckboxes.length) {
+        selectAllCheckbox.checked = true;
+        selectAllCheckbox.indeterminate = false;
+    } else {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = true;
+    }
+}
+
+// Function to update the selected text display
+function updateSelectedText(filterType) {
+    const selectedSet = filterType === 'status' ? selectedStatuses : selectedAssignees;
+    const button = document.querySelector(`#${filterType}-filter .selected-text`);
+    const totalOptions = document.querySelectorAll(`#${filterType}-options-list input[type="checkbox"]`).length;
+
+    if (selectedSet.size === 0) {
+        button.textContent = `No ${filterType === 'status' ? 'Statuses' : 'Assignees'}`;
+    } else if (selectedSet.size === totalOptions) {
+        button.textContent = `All ${filterType === 'status' ? 'Statuses' : 'Assignees'}`;
+    } else if (selectedSet.size === 1) {
+        button.textContent = Array.from(selectedSet)[0];
+    } else {
+        button.textContent = `${selectedSet.size} ${filterType === 'status' ? 'Statuses' : 'Assignees'}`;
+    }
+}
+
+// Function to apply filters and update displays
+function applyFilters() {
+    // Filter the issues based on selected criteria
+    filteredIssues = allIssues.filter(issue => {
+        const issueStatus = issue.state?.name || 'Unknown';
+        const issueAssignee = issue.assignee?.name || 'Unassigned';
+
+        const statusMatch = selectedStatuses.size === 0 || selectedStatuses.has(issueStatus);
+        const assigneeMatch = selectedAssignees.size === 0 || selectedAssignees.has(issueAssignee);
+
+        return statusMatch && assigneeMatch;
+    });
+
+    console.log(`Filtered ${allIssues.length} issues down to ${filteredIssues.length} issues`);
+    console.log('Filter criteria:', {
+        statuses: Array.from(selectedStatuses),
+        assignees: Array.from(selectedAssignees)
+    });
+
+    // Update table view
+    const issuesToDisplay = filteredIssues.slice(0, DISPLAY_LIMIT);
+    displayIssues(issuesToDisplay, filteredIssues.length);
+
+    // Update mindmap view if it's currently active
+    const mindmapView = document.getElementById('interactive-mindmap-view');
+    if (mindmapView && mindmapView.classList.contains('active')) {
+        console.log('Updating mindmap with filtered issues');
+        initializeInteractiveMindMap(filteredIssues);
+    }
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.multi-select-dropdown')) {
+        document.querySelectorAll('.multi-select-options').forEach(options => {
+            options.style.display = 'none';
+        });
+        document.querySelectorAll('.multi-select-dropdown').forEach(dropdown => {
+            dropdown.classList.remove('open');
+        });
+    }
+});
 
 
 
