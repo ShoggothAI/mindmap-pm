@@ -38,12 +38,14 @@ function renderInteractiveMindMap() {
     // Clear existing content
     container.innerHTML = '';
 
-    // Create SVG element
+    // Create SVG element with minimum size to enable scrolling
     const svg = d3.select(container)
         .append('svg')
         .attr('width', '100%')
         .attr('height', '100%')
-        .style('background', 'transparent');
+        .style('background', 'transparent')
+        .style('min-width', '1200px')
+        .style('min-height', '800px');
 
     svgElement = svg;
 
@@ -61,20 +63,29 @@ function updateMindMapVisualization() {
     // Clear existing elements
     svgElement.selectAll("*").remove();
 
-    // Get actual container dimensions
+    // Get actual container dimensions and ensure minimum size for scrolling
     const container = document.getElementById('interactive-mindmap-container');
     const containerRect = container.getBoundingClientRect();
-    const width = Math.max(containerRect.width, 1000);
-    const height = Math.max(containerRect.height, 600);
+    const width = Math.max(containerRect.width, 1200); // Minimum width for horizontal scrolling
+    const height = Math.max(containerRect.height, 800); // Minimum height for vertical scrolling
 
     console.log('Container dimensions:', containerRect.width, 'x', containerRect.height);
     console.log('Using dimensions:', width, 'x', height);
+
+    // Update SVG dimensions to ensure proper scrolling
+    svgElement
+        .attr('width', width)
+        .attr('height', height);
 
     const g = svgElement.append("g");
 
     // Create zoom behavior
     const zoom = d3.zoom()
         .scaleExtent([0.1, 4])
+        .filter(function() {
+            // Only allow zoom on wheel events or when no node is being dragged
+            return d3.event.type === 'wheel' || d3.event.type === 'dblclick';
+        })
         .on("zoom", function() {
             g.attr("transform", d3.event.transform);
         });
@@ -102,9 +113,20 @@ function updateMindMapVisualization() {
 
     treeLayout(root);
 
-    // Position root at center-left
-    root.x = height / 2;
-    root.y = 100;
+    // Apply custom positions or use tree layout positions
+    root.descendants().forEach(d => {
+        const originalNode = findNodeById(mindMapData, d.data.id);
+        if (originalNode && hasCustomPosition(originalNode)) {
+            // Use custom position
+            d.x = originalNode.x;
+            d.y = originalNode.y;
+        } else if (d.depth === 0) {
+            // Position root at center-left
+            d.x = height / 2;
+            d.y = 100;
+        }
+        // For other nodes without custom positions, tree layout positions are already applied
+    });
 
     // We'll calculate positions after nodes are created with actual dimensions
     // For now, just use the tree layout for vertical positioning
@@ -215,6 +237,8 @@ function updateMindMapVisualization() {
             // Add drag behavior for reparenting
             const dragReparent = d3.drag()
                 .on("start", function() {
+                    // Stop event propagation to prevent node drag behavior
+                    d3.event.sourceEvent.stopPropagation();
                     d3.select(this).style("cursor", "grabbing");
                     nodes.selectAll("rect").style("stroke-dasharray", function(targetD) {
                         return targetD.data.id !== d.data.id ? "5,5" : null;
@@ -334,6 +358,13 @@ function updateMindMapVisualization() {
             nodesByLevel[level].forEach(node => {
                 const parent = node.parent;
                 if (!parent) return;
+
+                // Check if this node has a custom position - if so, skip auto-positioning
+                const originalNode = findNodeById(mindMapData, node.data.id);
+                if (originalNode && hasCustomPosition(originalNode)) {
+                    console.log(`Skipping auto-positioning for ${node.data.name} - has custom position`);
+                    return;
+                }
 
                 // Get actual parent node width
                 const parentNodeGroup = nodes.filter(n => n.data.id === parent.data.id);
@@ -507,6 +538,77 @@ function updateMindMapVisualization() {
             .duration(200)
             .style("transform", "scale(1)");
     });
+
+    // Add drag behavior to make entire nodes draggable
+    const nodeDrag = d3.drag()
+        .subject(function(d) {
+            // Set the drag subject to the current node position
+            return {x: d.y, y: d.x}; // Note: we swap x/y here to match our coordinate system
+        })
+        .on("start", function(d) {
+            // Stop event propagation to prevent zoom behavior
+            d3.event.sourceEvent.stopPropagation();
+
+            // Change cursor to indicate dragging
+            d3.select(this).style("cursor", "grabbing");
+        })
+        .on("drag", function(d) {
+            // Update the node's position using the drag event coordinates
+            d.y = d3.event.x; // event.x -> our y (horizontal)
+            d.x = d3.event.y; // event.y -> our x (vertical)
+
+            // Update the visual transform
+            d3.select(this).attr("transform", `translate(${d.y},${d.x})`);
+
+            // Update links that connect to this node
+            updateLinksForNode(d);
+        })
+        .on("end", function(d) {
+            // Change cursor back
+            d3.select(this).style("cursor", "pointer");
+
+            // Save the custom position to the original node data
+            const originalNode = findNodeById(mindMapData, d.data.id);
+            if (originalNode) {
+                setNodeCustomPosition(originalNode, d.x, d.y);
+                console.log(`Saved custom position for ${originalNode.name}: (${d.x}, ${d.y})`);
+            }
+        });
+
+    // Apply drag behavior to all nodes
+    nodes.call(nodeDrag);
+
+    // Function to update links when a node is dragged
+    function updateLinksForNode(draggedNode) {
+        // Update all links that involve this node - use the same logic as the main link drawing
+        links.attr("d", function(linkData) {
+            const sourceNode = linkData.source;
+            const targetNode = linkData.target;
+
+            // Get source node dimensions and +/- control position
+            const sourceNodeGroup = nodes.filter(node => node.data.id === sourceNode.data.id);
+            const sourceRect = sourceNodeGroup.select("rect");
+            const sourceWidth = +sourceRect.attr("data-width");
+
+            // Source point: +/- control position (all nodes with children have +/- controls)
+            const sourceX = sourceNode.y + (sourceWidth / 2) + 5 + 12; // +5 for button offset, +12 for button radius
+            const sourceY = sourceNode.x;
+
+            // Get target node dimensions and connection circle position
+            const targetNodeGroup = nodes.filter(node => node.data.id === targetNode.data.id);
+            const targetRect = targetNodeGroup.select("rect");
+            const targetWidth = +targetRect.attr("data-width");
+
+            // Target point: connection circle position (left edge of child node)
+            const targetX = targetNode.y - (targetWidth / 2) - 8; // -8 for circle offset
+            const targetY = targetNode.x;
+
+            // Create curved path
+            const midX = (sourceX + targetX) / 2;
+
+            return `M${sourceX},${sourceY} C${midX},${sourceY} ${midX},${targetY} ${targetX},${targetY}`;
+        });
+    }
 
     // Clear selection when clicking on empty space
     svgElement.on("click", function() {

@@ -11,6 +11,10 @@ class MindMapNode {
         this.status = status; // 'backlog' | 'in-progress' | 'done'
         this.children = children;
         this.collapsed = false;
+        // Custom positioning properties
+        this.x = null; // Custom X position (null means use auto-layout)
+        this.y = null; // Custom Y position (null means use auto-layout)
+        this.hasCustomPosition = false; // Flag to track if node has been manually positioned
     }
 }
 
@@ -137,6 +141,25 @@ function toggleNodeCollapsed(node) {
     if (node.children && node.children.length > 0) {
         node.collapsed = !node.collapsed;
     }
+}
+
+// Set custom position for a node
+function setNodeCustomPosition(node, x, y) {
+    node.x = x;
+    node.y = y;
+    node.hasCustomPosition = true;
+}
+
+// Clear custom position for a node (revert to auto-layout)
+function clearNodeCustomPosition(node) {
+    node.x = null;
+    node.y = null;
+    node.hasCustomPosition = false;
+}
+
+// Check if a node has a custom position
+function hasCustomPosition(node) {
+    return node.hasCustomPosition && node.x !== null && node.y !== null;
 }
 
 // Convert Linear issues to MindMapNode structure
