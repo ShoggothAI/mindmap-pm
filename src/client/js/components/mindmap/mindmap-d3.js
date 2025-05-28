@@ -223,9 +223,14 @@ function updateMindMapVisualization() {
             }
         })
         .style("stroke", d => {
-            const color = getStatusColor(d.data.status);
-            console.log('Mindmap node color for status', d.data.status, ':', color);
-            return color;
+            // Use purple for Team and Project nodes, status colors for issues
+            if (d.data.nodeType === 'team' || d.data.nodeType === 'project') {
+                return '#8B5CF6'; // Purple for Team/Project nodes
+            } else {
+                const color = getStatusColor(d.data.status);
+                console.log('Mindmap node color for status', d.data.status, ':', color);
+                return color;
+            }
         })
         .style("stroke-width", d => d.data.id === selectedNodeId ? 3 : 3)
         .each(function(d) {

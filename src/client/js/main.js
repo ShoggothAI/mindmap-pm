@@ -410,11 +410,33 @@ function populateMultiSelectOptions(filterType, counts) {
     const optionsList = document.getElementById(`${filterType}-options-list`);
     optionsList.innerHTML = '';
 
-    // Sort by count (descending) then by name
-    const sortedEntries = Object.entries(counts).sort((a, b) => {
-        if (b[1] !== a[1]) return b[1] - a[1]; // Sort by count descending
-        return a[0].localeCompare(b[0]); // Then by name ascending
-    });
+    let sortedEntries;
+
+    if (filterType === 'status') {
+        // Custom order for status values
+        const statusOrder = ['Backlog', 'Todo', 'In Progress', 'In Review', 'Done', 'Cancelled', 'Duplicate'];
+
+        sortedEntries = Object.entries(counts).sort((a, b) => {
+            const indexA = statusOrder.indexOf(a[0]);
+            const indexB = statusOrder.indexOf(b[0]);
+
+            // If both statuses are in the predefined order, sort by that order
+            if (indexA !== -1 && indexB !== -1) {
+                return indexA - indexB;
+            }
+            // If only one is in the predefined order, prioritize it
+            if (indexA !== -1) return -1;
+            if (indexB !== -1) return 1;
+            // If neither is in the predefined order, sort alphabetically
+            return a[0].localeCompare(b[0]);
+        });
+    } else {
+        // Sort by count (descending) then by name for other filter types
+        sortedEntries = Object.entries(counts).sort((a, b) => {
+            if (b[1] !== a[1]) return b[1] - a[1]; // Sort by count descending
+            return a[0].localeCompare(b[0]); // Then by name ascending
+        });
+    }
 
     sortedEntries.forEach(([value, count]) => {
         const optionItem = document.createElement('div');
