@@ -4,6 +4,10 @@
 let currentDialogNode = null;
 let dialogSaveCallback = null;
 
+// Track if dropdowns have been initialized to prevent duplicate event listeners
+let statusDropdownInitialized = false;
+let assigneeDropdownInitialized = false;
+
 // Function to populate status dropdown with actual Linear states
 function populateStatusDropdown(node) {
     const statusSelect = document.getElementById('issue-status');
@@ -67,8 +71,11 @@ function populateStatusDropdown(node) {
         statusDropdown.appendChild(statusOption);
     });
 
-    // Initialize custom dropdown functionality
-    initializeCustomStatusDropdown();
+    // Initialize custom dropdown functionality (only once)
+    if (!statusDropdownInitialized) {
+        initializeCustomStatusDropdown();
+        statusDropdownInitialized = true;
+    }
 
     return statesToUse.length > 0;
 }
@@ -140,8 +147,11 @@ function populateAssigneeDropdown() {
         }
     }
 
-    // Initialize custom dropdown functionality
-    initializeCustomAssigneeDropdown();
+    // Initialize custom dropdown functionality (only once)
+    if (!assigneeDropdownInitialized) {
+        initializeCustomAssigneeDropdown();
+        assigneeDropdownInitialized = true;
+    }
 
     console.log('No Linear users available for assignee dropdown');
     return false;
@@ -523,6 +533,18 @@ document.getElementById('issue-dialog').addEventListener('click', function(event
 // Prevent dialog content clicks from closing dialog
 document.querySelector('.dialog-content').addEventListener('click', function(event) {
     event.stopPropagation();
+});
+
+// Handle Save Changes button click
+document.getElementById('dialog-save-btn').addEventListener('click', function(event) {
+    event.preventDefault();
+    saveIssueDialog();
+});
+
+// Handle Cancel button click
+document.getElementById('dialog-cancel-btn').addEventListener('click', function(event) {
+    event.preventDefault();
+    closeIssueDialog();
 });
 
 // Export functions for global use
