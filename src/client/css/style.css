@@ -1075,23 +1075,97 @@ tr:hover {
 }
 
 .form-textarea {
-    resize: none;
-    height: 80px;
+    resize: vertical;
+    min-height: 300px;
 }
 
-/* Status Select Styles */
+/* Custom Status Select Styles */
 .status-select-container {
     position: relative;
 }
 
-.status-badge {
-    margin-top: 8px;
+.custom-select-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.custom-select-trigger {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #c4b5fd;
+    border-radius: 6px;
+    background: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.2s;
+}
+
+.custom-select-trigger:hover {
+    border-color: #8b5cf6;
+}
+
+.custom-select-trigger:focus {
+    outline: none;
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.select-arrow {
+    color: #6b7280;
+    transition: transform 0.2s;
+}
+
+.custom-select-trigger.open .select-arrow {
+    transform: rotate(180deg);
+}
+
+.custom-select-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #c4b5fd;
+    border-radius: 6px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: 2px;
+}
+
+.status-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+}
+
+.status-option:hover {
+    background-color: #f8fafc;
+}
+
+.status-option.selected {
+    background-color: #f3f4f6;
+}
+
+.status-option.selected::before {
+    content: '✓';
+    margin-right: 8px;
+    color: #8b5cf6;
+    font-weight: bold;
+}
+
+.status-pill {
     padding: 4px 12px;
     border-radius: 12px;
     font-size: 0.75rem;
     font-weight: 500;
-    display: inline-block;
     border: 1px solid;
+    display: inline-block;
 }
 
 /* Info Field Styles */

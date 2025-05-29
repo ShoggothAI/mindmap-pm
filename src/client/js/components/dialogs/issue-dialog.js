@@ -7,48 +7,70 @@ let dialogSaveCallback = null;
 // Function to populate status dropdown with actual Linear states
 function populateStatusDropdown(node) {
     const statusSelect = document.getElementById('issue-status');
+    const statusDropdown = document.getElementById('status-dropdown');
     const teamId = node.teamId;
 
     // Clear existing options
     statusSelect.innerHTML = '';
+    statusDropdown.innerHTML = '';
+
+    let statesToUse = [];
 
     if (teamId && typeof getLinearStatesForTeam === 'function') {
         const teamStates = getLinearStatesForTeam(teamId);
 
         if (teamStates && teamStates.length > 0) {
-            // Populate with actual Linear states
-            teamStates.forEach(state => {
-                const option = document.createElement('option');
-                option.value = state.name;
-                option.textContent = state.name;
-                statusSelect.appendChild(option);
-            });
-
+            // Use actual Linear states
+            statesToUse = teamStates.map(state => ({ name: state.name }));
             console.log(`Populated status dropdown with ${teamStates.length} Linear states for team ${teamId}`);
-            return true;
         }
     }
 
     // Fallback to default options if no Linear states available
-    console.log('Using fallback status options');
-    const defaultStates = [
-        { name: 'Backlog' },
-        { name: 'Todo' },
-        { name: 'In Progress' },
-        { name: 'In Review' },
-        { name: 'Done' },
-        { name: 'Cancelled' },
-        { name: 'Duplicate' }
-    ];
+    if (statesToUse.length === 0) {
+        console.log('Using fallback status options');
+        statesToUse = [
+            { name: 'Backlog' },
+            { name: 'Todo' },
+            { name: 'In Progress' },
+            { name: 'In Review' },
+            { name: 'Done' },
+            { name: 'Cancelled' },
+            { name: 'Duplicate' }
+        ];
+    }
 
-    defaultStates.forEach(state => {
+    // Populate both the hidden select and custom dropdown
+    statesToUse.forEach(state => {
+        // Hidden select option
         const option = document.createElement('option');
         option.value = state.name;
         option.textContent = state.name;
         statusSelect.appendChild(option);
+
+        // Custom dropdown option
+        const statusOption = document.createElement('div');
+        statusOption.className = 'status-option';
+        statusOption.setAttribute('data-value', state.name);
+
+        const statusPill = document.createElement('span');
+        statusPill.className = 'status-pill';
+        statusPill.textContent = state.name;
+
+        // Apply status colors
+        const statusColor = getStatusColor(state.name);
+        statusPill.style.backgroundColor = statusColor + '20'; // 20 for transparency
+        statusPill.style.color = statusColor;
+        statusPill.style.borderColor = statusColor + '40'; // 40 for border transparency
+
+        statusOption.appendChild(statusPill);
+        statusDropdown.appendChild(statusOption);
     });
 
-    return false;
+    // Initialize custom dropdown functionality
+    initializeCustomStatusDropdown();
+
+    return statesToUse.length > 0;
 }
 
 // Function to populate assignee dropdown with Linear users
@@ -100,14 +122,12 @@ function openIssueDialog(node, onSave) {
     document.getElementById('issue-description').value = node.description || '';
 
     // Set status - use node's status, fallback to "Backlog" if it exists, otherwise leave unselected
-    const statusSelect = document.getElementById('issue-status');
     let statusToSet = node.status;
     if (!statusToSet) {
-        // Check if "Backlog" is available in the dropdown
-        const backlogOption = Array.from(statusSelect.options).find(option => option.value === 'Backlog');
-        statusToSet = backlogOption ? 'Backlog' : '';
+        statusToSet = 'Backlog'; // Default to Backlog
     }
-    statusSelect.value = statusToSet;
+
+    console.log('Node status:', node.status, 'Setting status to:', statusToSet);
 
     // Set assignee - try to match by assignee ID first, then by name
     const assigneeSelect = document.getElementById('issue-assignee');
@@ -142,11 +162,11 @@ function openIssueDialog(node, onSave) {
         parentIdSection.style.display = 'none';
     }
 
-    // Apply status colors to the select dropdown and badge
-    applyStatusColorsToSelect();
-    updateStatusBadge();
+    // Set the custom dropdown selected value
+    setCustomDropdownValue(statusToSet);
 
-    // Update assignee display
+    // Initialize and update assignee display
+    initializeAssigneeDropdown();
     updateAssigneeDisplay();
 
     // Populate project information fields (read-only)
@@ -248,61 +268,14 @@ function saveIssueDialog() {
 
 // Status colors are now handled by the global color map in status-colors.js
 
-// Apply status colors to the select dropdown
-function applyStatusColorsToSelect() {
-    const statusSelect = document.getElementById('issue-status');
-    if (!statusSelect) return;
-
-    // Apply colors to each option
-    Array.from(statusSelect.options).forEach(option => {
-        const statusValue = option.value;
-        const statusColor = getStatusColor(statusValue);
-
-        // Set the option's style
-        option.style.backgroundColor = statusColor + '20'; // 20 for transparency
-        option.style.borderLeft = `4px solid ${statusColor}`;
-        option.style.paddingLeft = '8px';
-    });
-
-    // Update select background when value changes
-    statusSelect.addEventListener('change', function() {
-        const selectedColor = getStatusColor(this.value);
-        this.style.backgroundColor = selectedColor + '20';
-        this.style.borderLeft = `4px solid ${selectedColor}`;
-        // Also update the status badge
-        updateStatusBadge();
-    });
-
-    // Add event listener for assignee changes
+// Add event listener for assignee changes
+function initializeAssigneeDropdown() {
     const assigneeSelect = document.getElementById('issue-assignee');
     if (assigneeSelect) {
         assigneeSelect.addEventListener('change', function() {
             updateAssigneeDisplay();
         });
     }
-
-    // Set initial color
-    const initialColor = getStatusColor(statusSelect.value);
-    statusSelect.style.backgroundColor = initialColor + '20';
-    statusSelect.style.borderLeft = `4px solid ${initialColor}`;
-}
-
-// Update status badge display
-function updateStatusBadge() {
-    const statusSelect = document.getElementById('issue-status');
-    const statusBadge = document.getElementById('status-badge-display');
-
-    if (!statusSelect || !statusBadge) return;
-
-    const selectedStatus = statusSelect.value;
-    const statusColor = getStatusColor(selectedStatus);
-    const statusText = getStatusDisplayText(selectedStatus);
-
-    // Update badge appearance
-    statusBadge.textContent = statusText;
-    statusBadge.style.backgroundColor = statusColor + '20'; // 20 for transparency
-    statusBadge.style.color = statusColor;
-    statusBadge.style.borderColor = statusColor + '40'; // 40 for border transparency
 }
 
 // Update assignee display
@@ -330,9 +303,100 @@ function updateAssigneeDisplay() {
     assigneeName.textContent = 'Unassigned';
 }
 
+// Initialize custom status dropdown functionality
+function initializeCustomStatusDropdown() {
+    const trigger = document.getElementById('status-select-trigger');
+    const dropdown = document.getElementById('status-dropdown');
+    const hiddenSelect = document.getElementById('issue-status');
+
+    if (!trigger || !dropdown || !hiddenSelect) return;
+
+    // Toggle dropdown on trigger click
+    trigger.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const isOpen = !dropdown.classList.contains('hidden');
+
+        if (isOpen) {
+            dropdown.classList.add('hidden');
+            trigger.classList.remove('open');
+        } else {
+            dropdown.classList.remove('hidden');
+            trigger.classList.add('open');
+        }
+    });
+
+    // Handle option selection
+    dropdown.addEventListener('click', function(e) {
+        const statusOption = e.target.closest('.status-option');
+        if (statusOption) {
+            const value = statusOption.getAttribute('data-value');
+            setCustomDropdownValue(value);
+            dropdown.classList.add('hidden');
+            trigger.classList.remove('open');
+        }
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!trigger.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.classList.add('hidden');
+            trigger.classList.remove('open');
+        }
+    });
+}
+
+// Set the selected value in the custom dropdown
+function setCustomDropdownValue(value) {
+    const hiddenSelect = document.getElementById('issue-status');
+    const selectedBadge = document.getElementById('status-selected-badge');
+    const dropdown = document.getElementById('status-dropdown');
+
+    if (!hiddenSelect || !selectedBadge || !dropdown) return;
+
+    console.log('Setting custom dropdown value to:', value);
+
+    // Update hidden select
+    hiddenSelect.value = value;
+
+    // Update selected badge
+    const statusText = getStatusDisplayText(value);
+    selectedBadge.textContent = statusText;
+
+    // Apply status colors to selected badge
+    const statusColor = getStatusColor(value);
+    selectedBadge.style.backgroundColor = statusColor + '20'; // 20 for transparency
+    selectedBadge.style.color = statusColor;
+    selectedBadge.style.borderColor = statusColor + '40'; // 40 for border transparency
+
+    console.log('Applied color:', statusColor, 'to badge for status:', value);
+
+    // Update selected state in dropdown options
+    const options = dropdown.querySelectorAll('.status-option');
+    options.forEach(option => {
+        const optionValue = option.getAttribute('data-value');
+        if (optionValue === value) {
+            option.classList.add('selected');
+            console.log('Marked option as selected:', optionValue);
+        } else {
+            option.classList.remove('selected');
+        }
+    });
+}
+
 // Get status display text
 function getStatusDisplayText(status) {
+    if (!status) return 'Backlog';
+
+    // Handle both exact matches and normalized matches
     const statusMap = {
+        'Backlog': 'Backlog',
+        'Todo': 'Todo',
+        'In Progress': 'In Progress',
+        'In Review': 'In Review',
+        'Done': 'Done',
+        'Cancelled': 'Cancelled',
+        'Duplicate': 'Duplicate',
+        // Also handle lowercase versions
         'backlog': 'Backlog',
         'todo': 'Todo',
         'in-progress': 'In Progress',
@@ -341,7 +405,8 @@ function getStatusDisplayText(status) {
         'cancelled': 'Cancelled',
         'duplicate': 'Duplicate'
     };
-    return statusMap[status] || 'Backlog';
+
+    return statusMap[status] || status || 'Backlog';
 }
 
 // Handle keyboard events for dialog
