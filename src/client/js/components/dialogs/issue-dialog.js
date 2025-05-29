@@ -76,9 +76,29 @@ function populateStatusDropdown(node) {
 // Function to populate assignee dropdown with Linear users
 function populateAssigneeDropdown() {
     const assigneeSelect = document.getElementById('issue-assignee');
+    const assigneeDropdown = document.getElementById('assignee-dropdown');
 
-    // Clear existing options except "No assignee"
-    assigneeSelect.innerHTML = '<option value="">No assignee</option>';
+    // Clear existing options
+    assigneeSelect.innerHTML = '';
+    assigneeDropdown.innerHTML = '';
+
+    // Add "No assignee" option
+    const noAssigneeOption = document.createElement('option');
+    noAssigneeOption.value = '';
+    noAssigneeOption.textContent = 'No assignee';
+    assigneeSelect.appendChild(noAssigneeOption);
+
+    // Add "No assignee" to custom dropdown
+    const noAssigneeDiv = document.createElement('div');
+    noAssigneeDiv.className = 'assignee-option';
+    noAssigneeDiv.setAttribute('data-value', '');
+    noAssigneeDiv.innerHTML = `
+        <div class="assignee-display-inline">
+            <div class="assignee-avatar">U</div>
+            <span class="assignee-name">Unassigned</span>
+        </div>
+    `;
+    assigneeDropdown.appendChild(noAssigneeDiv);
 
     if (typeof getAllLinearUsers === 'function') {
         const users = getAllLinearUsers();
@@ -89,16 +109,39 @@ function populateAssigneeDropdown() {
 
             // Populate with Linear users
             users.forEach(user => {
+                // Hidden select option
                 const option = document.createElement('option');
                 option.value = user.id;
                 option.textContent = `${user.displayName || user.name}${user.email ? ` (${user.email})` : ''}`;
                 assigneeSelect.appendChild(option);
+
+                // Custom dropdown option
+                const assigneeOption = document.createElement('div');
+                assigneeOption.className = 'assignee-option';
+                assigneeOption.setAttribute('data-value', user.id);
+
+                const displayName = user.displayName || user.name;
+                const avatar = displayName.charAt(0).toUpperCase();
+
+                assigneeOption.innerHTML = `
+                    <div class="assignee-display-inline">
+                        <div class="assignee-avatar">${avatar}</div>
+                        <div>
+                            <span class="assignee-name">${displayName}</span>
+                            ${user.email ? `<span class="assignee-email">(${user.email})</span>` : ''}
+                        </div>
+                    </div>
+                `;
+
+                assigneeDropdown.appendChild(assigneeOption);
             });
 
             console.log(`Populated assignee dropdown with ${users.length} Linear users`);
-            return true;
         }
     }
+
+    // Initialize custom dropdown functionality
+    initializeCustomAssigneeDropdown();
 
     console.log('No Linear users available for assignee dropdown');
     return false;
@@ -165,9 +208,8 @@ function openIssueDialog(node, onSave) {
     // Set the custom dropdown selected value
     setCustomDropdownValue(statusToSet);
 
-    // Initialize and update assignee display
-    initializeAssigneeDropdown();
-    updateAssigneeDisplay();
+    // Set the custom assignee dropdown selected value
+    setCustomAssigneeValue(assigneeToSet);
 
     // Populate project information fields (read-only)
     const teamField = document.getElementById('issue-team');
@@ -268,41 +310,6 @@ function saveIssueDialog() {
 
 // Status colors are now handled by the global color map in status-colors.js
 
-// Add event listener for assignee changes
-function initializeAssigneeDropdown() {
-    const assigneeSelect = document.getElementById('issue-assignee');
-    if (assigneeSelect) {
-        assigneeSelect.addEventListener('change', function() {
-            updateAssigneeDisplay();
-        });
-    }
-}
-
-// Update assignee display
-function updateAssigneeDisplay() {
-    const assigneeSelect = document.getElementById('issue-assignee');
-    const assigneeAvatar = document.getElementById('assignee-avatar');
-    const assigneeName = document.getElementById('assignee-name');
-
-    if (!assigneeSelect || !assigneeAvatar || !assigneeName) return;
-
-    const selectedAssigneeId = assigneeSelect.value;
-
-    if (selectedAssigneeId && typeof getLinearUserById === 'function') {
-        const user = getLinearUserById(selectedAssigneeId);
-        if (user) {
-            const displayName = user.displayName || user.name;
-            assigneeAvatar.textContent = displayName.charAt(0).toUpperCase();
-            assigneeName.textContent = displayName;
-            return;
-        }
-    }
-
-    // Default to unassigned
-    assigneeAvatar.textContent = 'U';
-    assigneeName.textContent = 'Unassigned';
-}
-
 // Initialize custom status dropdown functionality
 function initializeCustomStatusDropdown() {
     const trigger = document.getElementById('status-select-trigger');
@@ -359,8 +366,7 @@ function setCustomDropdownValue(value) {
     hiddenSelect.value = value;
 
     // Update selected badge
-    const statusText = getStatusDisplayText(value);
-    selectedBadge.textContent = statusText;
+    selectedBadge.textContent = getStatusDisplayText(value);
 
     // Apply status colors to selected badge
     const statusColor = getStatusColor(value);
@@ -407,6 +413,92 @@ function getStatusDisplayText(status) {
     };
 
     return statusMap[status] || status || 'Backlog';
+}
+
+// Initialize custom assignee dropdown functionality
+function initializeCustomAssigneeDropdown() {
+    const trigger = document.getElementById('assignee-select-trigger');
+    const dropdown = document.getElementById('assignee-dropdown');
+    const hiddenSelect = document.getElementById('issue-assignee');
+
+    if (!trigger || !dropdown || !hiddenSelect) return;
+
+    // Toggle dropdown on trigger click
+    trigger.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const isOpen = !dropdown.classList.contains('hidden');
+
+        if (isOpen) {
+            dropdown.classList.add('hidden');
+            trigger.classList.remove('open');
+        } else {
+            dropdown.classList.remove('hidden');
+            trigger.classList.add('open');
+        }
+    });
+
+    // Handle option selection
+    dropdown.addEventListener('click', function(e) {
+        const assigneeOption = e.target.closest('.assignee-option');
+        if (assigneeOption) {
+            const value = assigneeOption.getAttribute('data-value');
+            setCustomAssigneeValue(value);
+            dropdown.classList.add('hidden');
+            trigger.classList.remove('open');
+        }
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!trigger.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.classList.add('hidden');
+            trigger.classList.remove('open');
+        }
+    });
+}
+
+// Set the selected value in the custom assignee dropdown
+function setCustomAssigneeValue(value) {
+    const hiddenSelect = document.getElementById('issue-assignee');
+    const avatarTrigger = document.getElementById('assignee-avatar-trigger');
+    const nameTrigger = document.getElementById('assignee-name-trigger');
+    const dropdown = document.getElementById('assignee-dropdown');
+
+    if (!hiddenSelect || !avatarTrigger || !nameTrigger || !dropdown) return;
+
+    console.log('Setting custom assignee dropdown value to:', value);
+
+    // Update hidden select
+    hiddenSelect.value = value;
+
+    // Update trigger display
+    if (value && typeof getLinearUserById === 'function') {
+        const user = getLinearUserById(value);
+        if (user) {
+            const displayName = user.displayName || user.name;
+            avatarTrigger.textContent = displayName.charAt(0).toUpperCase();
+            // Include email in the trigger display
+            nameTrigger.textContent = user.email ? `${displayName} (${user.email})` : displayName;
+        } else {
+            avatarTrigger.textContent = 'U';
+            nameTrigger.textContent = 'Unassigned';
+        }
+    } else {
+        avatarTrigger.textContent = 'U';
+        nameTrigger.textContent = 'Unassigned';
+    }
+
+    // Update selected state in dropdown options
+    const options = dropdown.querySelectorAll('.assignee-option');
+    options.forEach(option => {
+        const optionValue = option.getAttribute('data-value');
+        if (optionValue === value) {
+            option.classList.add('selected');
+            console.log('Marked assignee option as selected:', optionValue);
+        } else {
+            option.classList.remove('selected');
+        }
+    });
 }
 
 // Handle keyboard events for dialog

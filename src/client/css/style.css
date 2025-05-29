@@ -1198,16 +1198,86 @@ tr:hover {
     word-break: break-all;
 }
 
-/* Assignment Styles */
-.assignee-display {
-    margin-top: 8px;
-    padding: 8px;
-    background: linear-gradient(135deg, #f3f4f6 0%, #f8fafc 100%);
-    border-radius: 4px;
+/* Custom Assignee Select Styles */
+.assignee-select-container {
+    position: relative;
+}
+
+.custom-assignee-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.custom-assignee-trigger {
+    width: 100%;
+    padding: 8px 12px;
     border: 1px solid #c4b5fd;
+    border-radius: 6px;
+    background: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.2s;
+}
+
+.custom-assignee-trigger:hover {
+    border-color: #8b5cf6;
+}
+
+.custom-assignee-trigger:focus {
+    outline: none;
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.custom-assignee-trigger.open .select-arrow {
+    transform: rotate(180deg);
+}
+
+.custom-assignee-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #c4b5fd;
+    border-radius: 6px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: 2px;
+}
+
+.assignee-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+}
+
+.assignee-option:hover {
+    background-color: #f8fafc;
+}
+
+.assignee-option.selected {
+    background-color: #f3f4f6;
+}
+
+.assignee-option.selected::before {
+    content: '✓';
+    margin-right: 8px;
+    color: #8b5cf6;
+    font-weight: bold;
+}
+
+.assignee-display-inline {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex: 1;
 }
 
 .assignee-avatar {
@@ -1221,12 +1291,19 @@ tr:hover {
     color: white;
     font-size: 0.75rem;
     font-weight: 500;
+    flex-shrink: 0;
 }
 
 .assignee-name {
     font-size: 0.75rem;
     font-weight: 500;
     color: #374151;
+}
+
+.assignee-email {
+    font-size: 0.7rem;
+    color: #6b7280;
+    margin-left: 4px;
 }
 
 /* Project Info Grid */

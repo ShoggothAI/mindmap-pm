@@ -271,14 +271,31 @@
 
                             <div class="form-group">
                                 <label for="issue-assignee" class="info-label">Assignee</label>
-                                <select id="issue-assignee" class="assignee-select modern-select">
-                                    <option value="">No assignee</option>
-                                </select>
-                                <div class="assignee-display">
-                                    <div id="assignee-avatar" class="assignee-avatar"></div>
-                                    <span id="assignee-name" class="assignee-name">Unassigned</span>
+                                <div class="assignee-select-container">
+                                    <div class="custom-assignee-wrapper">
+                                        <div id="assignee-select-trigger" class="custom-assignee-trigger">
+                                            <div class="assignee-display-inline">
+                                                <div id="assignee-avatar-trigger" class="assignee-avatar">U</div>
+                                                <span id="assignee-name-trigger" class="assignee-name">Unassigned</span>
+                                            </div>
+                                            <svg class="select-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <polyline points="6,9 12,15 18,9"></polyline>
+                                            </svg>
+                                        </div>
+                                        <div id="assignee-dropdown" class="custom-assignee-dropdown hidden">
+                                            <div class="assignee-option" data-value="">
+                                                <div class="assignee-display-inline">
+                                                    <div class="assignee-avatar">U</div>
+                                                    <span class="assignee-name">Unassigned</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Hidden select for form submission -->
+                                    <select id="issue-assignee" class="hidden">
+                                        <option value="">No assignee</option>
+                                    </select>
                                 </div>
-                                <small class="field-help">Assignee changes will be synchronized with Linear API.</small>
                             </div>
                         </div>
 
@@ -324,8 +341,8 @@
             </div>
 
             <div class="dialog-footer modern-footer">
-                <button class="btn btn-secondary" onclick="closeIssueDialog()">Cancel</button>
-                <button class="btn btn-primary modern-primary" onclick="saveIssueDialog()">Save Changes</button>
+                <button class="btn btn-secondary" id="dialog-cancel-btn">Cancel</button>
+                <button class="btn btn-primary modern-primary" id="dialog-save-btn">Save Changes</button>
             </div>
         </div>
     </div>
