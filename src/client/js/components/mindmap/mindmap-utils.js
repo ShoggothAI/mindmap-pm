@@ -202,6 +202,10 @@ async function addChildNodeWithLinearSync(parentNode, issueData) {
         newChild.projectId = createdIssue.project?.id || parentNode.projectId;
         newChild.projectName = createdIssue.project?.name || parentNode.projectName;
 
+        // Preserve Linear-specific fields for URL generation
+        newChild.url = createdIssue.url;
+        newChild.identifier = createdIssue.identifier;
+
         parentNode.children.push(newChild);
 
         console.log('Successfully created mindmap node with Linear issue:', newChild);
@@ -534,6 +538,10 @@ function convertLinearIssuesToMindMap(filteredIssues, allIssues = null) {
             convertStatus(issue.state),
             []
         );
+
+        // Preserve Linear-specific fields for URL generation
+        node.url = issue.url;
+        node.identifier = issue.identifier;
 
         // Mark whether this issue is filtered (visible) or greyed out (parent only)
         node.isFiltered = filteredIssueIds.has(issue.id);

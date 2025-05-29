@@ -938,6 +938,23 @@ tr:hover {
     margin: 0;
 }
 
+.issue-details-link {
+    text-decoration: none;
+    color: inherit;
+    background: inherit;
+    -webkit-background-clip: inherit;
+    -webkit-text-fill-color: inherit;
+    background-clip: inherit;
+    transition: text-decoration 0.2s ease;
+}
+
+.issue-details-link:hover {
+    text-decoration: underline;
+    text-decoration-color: #8b5cf6;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+}
+
 .header-right {
     display: flex;
     align-items: center;

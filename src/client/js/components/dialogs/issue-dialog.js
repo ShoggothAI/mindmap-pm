@@ -271,6 +271,27 @@ function openIssueDialog(node, onSave) {
         projectIdField.textContent = projectIdValue;
     }
 
+    // Set the Linear issue URL for the title link
+    const issueDetailsLink = document.getElementById('issue-details-link');
+    if (issueDetailsLink) {
+        if (node.url) {
+            // Use the Linear URL if available
+            issueDetailsLink.href = node.url;
+            issueDetailsLink.style.pointerEvents = 'auto';
+            issueDetailsLink.style.opacity = '1';
+        } else if (node.identifier) {
+            // Fallback: construct URL from identifier if available
+            issueDetailsLink.href = `https://linear.app/issue/${node.identifier}`;
+            issueDetailsLink.style.pointerEvents = 'auto';
+            issueDetailsLink.style.opacity = '1';
+        } else {
+            // Fallback: disable link if no URL info available
+            issueDetailsLink.href = '#';
+            issueDetailsLink.style.pointerEvents = 'none';
+            issueDetailsLink.style.opacity = '0.5';
+        }
+    }
+
     // Show dialog
     const dialog = document.getElementById('issue-dialog');
     dialog.classList.remove('hidden');
