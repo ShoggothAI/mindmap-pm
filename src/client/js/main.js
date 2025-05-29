@@ -739,14 +739,7 @@ async function refreshIssues() {
             return;
         }
 
-        // Store current mindmap data and zoom state before refresh
-        const currentMindMapData = window.mindMapData || null;
-        const currentZoomTransform = window.currentZoomTransform || null;
-
-        console.log('Preserving current mindmap state:', {
-            hasMindMapData: !!currentMindMapData,
-            hasZoomTransform: !!currentZoomTransform
-        });
+        // Fetch fresh data and apply existing filters
 
         // Fetch fresh issues from Linear
         console.log('Fetching fresh issues from Linear...');
@@ -787,35 +780,9 @@ async function refreshIssues() {
             updateSearchClearButton();
         }
 
-        // Update table view
-        const issuesToDisplay = filteredIssues.slice(0, DISPLAY_LIMIT);
-        displayIssues(issuesToDisplay, filteredIssues.length);
-
-        // Update mindmap view if it's currently active, preserving positioning and zoom
-        const mindmapView = document.getElementById('interactive-mindmap-view');
-        if (mindmapView && mindmapView.classList.contains('active')) {
-            console.log('Updating mindmap with fresh data while preserving state');
-
-            // Use the merge function to preserve positioning
-            if (currentMindMapData && typeof updateMindMapWithFreshData === 'function') {
-                console.log('Using merge function to preserve mindmap positioning');
-                window.mindMapData = updateMindMapWithFreshData(freshIssues, currentMindMapData, filteredIssues);
-                window.isRefreshing = true; // Set refresh flag
-            } else {
-                console.log('No existing mindmap data or merge function, creating fresh');
-                window.mindMapData = null; // Reset to trigger fresh creation
-                window.isRefreshing = false;
-            }
-
-            // Restore zoom state
-            if (currentZoomTransform) {
-                console.log('Restoring zoom state');
-                window.currentZoomTransform = currentZoomTransform;
-            }
-
-            // Re-initialize the mindmap
-            initializeInteractiveMindMap(filteredIssues, allIssues);
-        }
+        // Update displays using the same logic as filter changes
+        // This ensures consistency between refresh and filter operations
+        applyFilters();
 
         console.log('Refresh completed successfully');
 
