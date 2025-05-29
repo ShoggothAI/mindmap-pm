@@ -127,10 +127,27 @@ function openIssueDialog(node, onSave) {
     }
 
     assigneeSelect.value = assigneeToSet;
-    document.getElementById('issue-id-display').textContent = `#${node.id}`;
 
-    // Apply status colors to the select dropdown
+    // Update issue ID displays
+    document.getElementById('issue-id-display').textContent = node.id;
+    document.getElementById('issue-id-readonly').textContent = node.id;
+
+    // Show/hide parent ID section
+    const parentIdSection = document.getElementById('parent-id-section');
+    const parentIdField = document.getElementById('issue-parent-id');
+    if (node.parentId) {
+        parentIdField.textContent = node.parentId;
+        parentIdSection.style.display = 'block';
+    } else {
+        parentIdSection.style.display = 'none';
+    }
+
+    // Apply status colors to the select dropdown and badge
     applyStatusColorsToSelect();
+    updateStatusBadge();
+
+    // Update assignee display
+    updateAssigneeDisplay();
 
     // Populate project information fields (read-only)
     const teamField = document.getElementById('issue-team');
@@ -146,7 +163,7 @@ function openIssueDialog(node, onSave) {
         } else if (node.nodeType === 'team') {
             teamValue = node.name;
         }
-        teamField.value = teamValue;
+        teamField.textContent = teamValue;
     }
 
     if (teamIdField) {
@@ -157,7 +174,7 @@ function openIssueDialog(node, onSave) {
         } else if (node.nodeType === 'team') {
             teamIdValue = node.id;
         }
-        teamIdField.value = teamIdValue;
+        teamIdField.textContent = teamIdValue;
     }
 
     if (projectField) {
@@ -168,7 +185,7 @@ function openIssueDialog(node, onSave) {
         } else if (node.nodeType === 'project') {
             projectValue = node.name;
         }
-        projectField.value = projectValue;
+        projectField.textContent = projectValue;
     }
 
     if (projectIdField) {
@@ -179,7 +196,7 @@ function openIssueDialog(node, onSave) {
         } else if (node.nodeType === 'project') {
             projectIdValue = node.id;
         }
-        projectIdField.value = projectIdValue;
+        projectIdField.textContent = projectIdValue;
     }
 
     // Show dialog
@@ -252,12 +269,65 @@ function applyStatusColorsToSelect() {
         const selectedColor = getStatusColor(this.value);
         this.style.backgroundColor = selectedColor + '20';
         this.style.borderLeft = `4px solid ${selectedColor}`;
+        // Also update the status badge
+        updateStatusBadge();
     });
+
+    // Add event listener for assignee changes
+    const assigneeSelect = document.getElementById('issue-assignee');
+    if (assigneeSelect) {
+        assigneeSelect.addEventListener('change', function() {
+            updateAssigneeDisplay();
+        });
+    }
 
     // Set initial color
     const initialColor = getStatusColor(statusSelect.value);
     statusSelect.style.backgroundColor = initialColor + '20';
     statusSelect.style.borderLeft = `4px solid ${initialColor}`;
+}
+
+// Update status badge display
+function updateStatusBadge() {
+    const statusSelect = document.getElementById('issue-status');
+    const statusBadge = document.getElementById('status-badge-display');
+
+    if (!statusSelect || !statusBadge) return;
+
+    const selectedStatus = statusSelect.value;
+    const statusColor = getStatusColor(selectedStatus);
+    const statusText = getStatusDisplayText(selectedStatus);
+
+    // Update badge appearance
+    statusBadge.textContent = statusText;
+    statusBadge.style.backgroundColor = statusColor + '20'; // 20 for transparency
+    statusBadge.style.color = statusColor;
+    statusBadge.style.borderColor = statusColor + '40'; // 40 for border transparency
+}
+
+// Update assignee display
+function updateAssigneeDisplay() {
+    const assigneeSelect = document.getElementById('issue-assignee');
+    const assigneeAvatar = document.getElementById('assignee-avatar');
+    const assigneeName = document.getElementById('assignee-name');
+
+    if (!assigneeSelect || !assigneeAvatar || !assigneeName) return;
+
+    const selectedAssigneeId = assigneeSelect.value;
+
+    if (selectedAssigneeId && typeof getLinearUserById === 'function') {
+        const user = getLinearUserById(selectedAssigneeId);
+        if (user) {
+            const displayName = user.displayName || user.name;
+            assigneeAvatar.textContent = displayName.charAt(0).toUpperCase();
+            assigneeName.textContent = displayName;
+            return;
+        }
+    }
+
+    // Default to unassigned
+    assigneeAvatar.textContent = 'U';
+    assigneeName.textContent = 'Unassigned';
 }
 
 // Get status display text

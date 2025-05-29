@@ -151,65 +151,150 @@
 
     <!-- Issue Dialog Modal -->
     <div id="issue-dialog" class="dialog-overlay hidden">
-        <div class="dialog-content">
-            <div class="dialog-header">
-                <h3>Issue Details</h3>
-                <span id="issue-id-display" class="issue-id"></span>
-                <button class="dialog-close" onclick="closeIssueDialog()">&times;</button>
+        <div class="dialog-content modern-dialog">
+            <div class="dialog-header modern-header">
+                <div class="header-left">
+                    <h3 class="dialog-title">Issue Details</h3>
+                </div>
+                <div class="header-right">
+                    <div class="issue-id-container">
+                        <svg class="hash-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="4" y1="9" x2="20" y2="9"></line>
+                            <line x1="4" y1="15" x2="20" y2="15"></line>
+                            <line x1="10" y1="3" x2="8" y2="21"></line>
+                            <line x1="16" y1="3" x2="14" y2="21"></line>
+                        </svg>
+                        <span id="issue-id-display" class="issue-id-badge"></span>
+                    </div>
+                    <button class="dialog-close" onclick="closeIssueDialog()">&times;</button>
+                </div>
             </div>
-            <div class="dialog-body">
-                <div class="form-group">
-                    <label for="issue-name">Name:</label>
-                    <input type="text" id="issue-name" placeholder="Issue name">
-                </div>
-                <div class="form-group">
-                    <label for="issue-description">Description:</label>
-                    <textarea id="issue-description" rows="4" placeholder="Detailed description of the issue"></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="issue-status">Status:</label>
-                    <select id="issue-status" class="status-select">
-                        <option value="backlog">Backlog</option>
-                        <option value="todo">Todo</option>
-                        <option value="in-progress">In Progress</option>
-                        <option value="in-review">In Review</option>
-                        <option value="done">Done</option>
-                        <option value="cancelled">Cancelled</option>
-                        <option value="duplicate">Duplicate</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="issue-assignee">Assignee:</label>
-                    <select id="issue-assignee" class="assignee-select">
-                        <option value="">No assignee</option>
-                    </select>
-                    <small class="field-help">Assignee changes will be synchronized with Linear API.</small>
-                </div>
-                <div class="form-group project-info-section">
-                    <label>📋 Project Information (Read-only):</label>
-                    <div class="project-info-grid">
-                        <div class="project-info-item">
-                            <label for="issue-team">Team:</label>
-                            <input type="text" id="issue-team" disabled class="readonly-field">
+
+            <div class="dialog-body modern-body">
+                <div class="dialog-grid">
+                    <!-- Main Content -->
+                    <div class="main-content">
+                        <div class="content-card">
+                            <div class="form-group">
+                                <label for="issue-name" class="form-label">Name</label>
+                                <input type="text" id="issue-name" class="form-input" placeholder="Issue name">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="issue-description" class="form-label">Description</label>
+                                <textarea id="issue-description" rows="4" class="form-textarea" placeholder="Detailed description of the issue"></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="issue-status" class="form-label">Status</label>
+                                <div class="status-select-container">
+                                    <select id="issue-status" class="status-select modern-select">
+                                        <option value="backlog">Backlog</option>
+                                        <option value="todo">Todo</option>
+                                        <option value="in-progress">In Progress</option>
+                                        <option value="in-review">In Review</option>
+                                        <option value="done">Done</option>
+                                        <option value="cancelled">Cancelled</option>
+                                        <option value="duplicate">Duplicate</option>
+                                    </select>
+                                    <div id="status-badge-display" class="status-badge"></div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="project-info-item">
-                            <label for="issue-team-id">Team ID:</label>
-                            <input type="text" id="issue-team-id" disabled class="readonly-field">
+                    </div>
+
+                    <!-- Sidebar Information -->
+                    <div class="sidebar-content">
+                        <!-- Metadata Section -->
+                        <div class="info-card">
+                            <h4 class="info-card-title">
+                                <svg class="title-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="4" y1="9" x2="20" y2="9"></line>
+                                    <line x1="4" y1="15" x2="20" y2="15"></line>
+                                    <line x1="10" y1="3" x2="8" y2="21"></line>
+                                    <line x1="16" y1="3" x2="14" y2="21"></line>
+                                </svg>
+                                Metadata
+                            </h4>
+
+                            <div class="info-field">
+                                <label class="info-label">Issue ID</label>
+                                <div id="issue-id-readonly" class="info-value"></div>
+                            </div>
+
+                            <div id="parent-id-section" class="info-field" style="display: none;">
+                                <label class="info-label">Parent ID</label>
+                                <div id="issue-parent-id" class="info-value"></div>
+                            </div>
                         </div>
-                        <div class="project-info-item">
-                            <label for="issue-project">Project:</label>
-                            <input type="text" id="issue-project" disabled class="readonly-field">
+
+                        <!-- Assignment Section -->
+                        <div class="info-card">
+                            <h4 class="info-card-title">
+                                <svg class="title-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="12" cy="7" r="4"></circle>
+                                </svg>
+                                Assignment
+                            </h4>
+
+                            <div class="form-group">
+                                <label for="issue-assignee" class="info-label">Assignee</label>
+                                <select id="issue-assignee" class="assignee-select modern-select">
+                                    <option value="">No assignee</option>
+                                </select>
+                                <div class="assignee-display">
+                                    <div id="assignee-avatar" class="assignee-avatar"></div>
+                                    <span id="assignee-name" class="assignee-name">Unassigned</span>
+                                </div>
+                                <small class="field-help">Assignee changes will be synchronized with Linear API.</small>
+                            </div>
                         </div>
-                        <div class="project-info-item">
-                            <label for="issue-project-id">Project ID:</label>
-                            <input type="text" id="issue-project-id" disabled class="readonly-field">
+
+                        <!-- Project Information Section -->
+                        <div class="info-card">
+                            <h4 class="info-card-title">
+                                <svg class="title-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M3 21h18"></path>
+                                    <path d="M5 21V7l8-4v18"></path>
+                                    <path d="M19 21V11l-6-4"></path>
+                                </svg>
+                                Project
+                            </h4>
+
+                            <div class="project-info-grid">
+                                <div class="info-field">
+                                    <label class="info-label">Team</label>
+                                    <div id="issue-team" class="info-value"></div>
+                                </div>
+
+                                <div class="info-field">
+                                    <label class="info-label">Team ID</label>
+                                    <div id="issue-team-id" class="info-value mono"></div>
+                                </div>
+                            </div>
+
+                            <div class="separator"></div>
+
+                            <div class="project-info-grid">
+                                <div class="info-field">
+                                    <label class="info-label">Project</label>
+                                    <div id="issue-project" class="info-value"></div>
+                                </div>
+
+                                <div class="info-field">
+                                    <label class="info-label">Project ID</label>
+                                    <div id="issue-project-id" class="info-value mono"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="dialog-footer">
+
+            <div class="dialog-footer modern-footer">
                 <button class="btn btn-secondary" onclick="closeIssueDialog()">Cancel</button>
-                <button class="btn btn-primary" onclick="saveIssueDialog()">Save Changes</button>
+                <button class="btn btn-primary modern-primary" onclick="saveIssueDialog()">Save Changes</button>
             </div>
         </div>
     </div>
